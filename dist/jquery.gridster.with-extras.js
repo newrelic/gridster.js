@@ -1,4 +1,4 @@
-/*! gridster.js - v0.2.1 - 2013-10-28
+/*! gridster.js - v0.2.0 - 2013-10-28
 * http://gridster.net/
 * Copyright (c) 2013 ducksboard; Licensed MIT */
 
@@ -819,12 +819,6 @@
     *       @param {Array} [options.resize.max_size] Limit widget dimensions
     *        when resizing. Array values should be integers:
     *        `[max_cols_occupied, max_rows_occupied]`
-    *       @param {Function} [options.resize.start] Function executed
-    *        when resizing starts.
-    *       @param {Function} [otions.resize.resize] Function executed
-    *        during the resizing.
-    *       @param {Function} [options.resize.stop] Function executed
-    *        when resizing stops.
     *
     * @constructor
     */
@@ -1065,6 +1059,40 @@
         }
 
         return $widget;
+    };
+
+    /**
+     * Resize all widgets based on a new set of size options.
+     *
+     * See: https://github.com/ducksboard/gridster.js/pull/77
+     *      https://gist.github.com/OwlyCode/6421823
+     *
+     * @param  {Object} options Widget options (widget_margins, widget_base_dimensions)
+     * @return {HTMLElement} Returns instance of gridster Class.
+     */
+    fn.resize_widget_dimensions = function(options) {
+        if (options.widget_margins) {
+            this.options.widget_margins = options.widget_margins;
+        }
+
+        if (options.widget_base_dimensions) {
+             this.options.widget_base_dimensions = options.widget_base_dimensions;
+        }
+
+        this.min_widget_width  = (this.options.widget_margins[0] * 2) + this.options.widget_base_dimensions[0];
+        this.min_widget_height = (this.options.widget_margins[1] * 2) + this.options.widget_base_dimensions[1];
+
+        var serializedGrid = this.serialize();
+        this.$widgets.each($.proxy(function(i, widget) {
+            var $widget = $(widget);
+            this.resize_widget($widget);
+        }, this));
+
+        this.generate_grid_and_stylesheet();
+        this.get_widgets_from_DOM();
+        this.set_dom_grid_height();
+
+        return this;
     };
 
 
@@ -1768,10 +1796,6 @@
         }).appendTo(this.$el);
 
         this.$resized_widget.addClass('resizing');
-
-		if (this.options.resize.start) {
-            this.options.resize.start.call(this, event, ui, this.$resized_widget);
-        }
     };
 
 
@@ -1798,10 +1822,6 @@
                     'min-height': ''
                 });
         }, this), 300);
-
-        if (this.options.resize.stop) {
-            this.options.resize.stop.call(this, event, ui, this.$resized_widget);
-        }
     };
 
     /**
@@ -1866,10 +1886,6 @@
                 'data-sizex': size_x,
                 'data-sizey': size_y
             });
-        }
-
-        if (this.options.resize.resize) {
-            this.options.resize.resize.call(this, event, ui, this.$resized_widget);
         }
 
         this.resize_last_sizex = size_x;
@@ -3322,7 +3338,7 @@
     */
     fn.generate_stylesheet = function(opts) {
         var styles = '';
-        var max_size_x = this.options.max_size_x || this.cols;
+        var max_size_x = this.options.max_size_x;
         var max_rows = 0;
         var max_cols = 0;
         var i;
@@ -3334,27 +3350,19 @@
         opts.namespace || (opts.namespace = this.options.namespace);
         opts.widget_base_dimensions ||
             (opts.widget_base_dimensions = this.options.widget_base_dimensions);
-        opts.widget_margins ||
-            (opts.widget_margins = this.options.widget_margins);
+        opts.widget_margins || (opts.widget_margins = this.options.widget_margins);
         opts.min_widget_width = (opts.widget_margins[0] * 2) +
             opts.widget_base_dimensions[0];
         opts.min_widget_height = (opts.widget_margins[1] * 2) +
             opts.widget_base_dimensions[1];
 
-        // don't duplicate stylesheets for the same configuration
-        var serialized_opts = $.param(opts);
-        if ($.inArray(serialized_opts, Gridster.generated_stylesheets) >= 0) {
-            return false;
-        }
-
-        Gridster.generated_stylesheets.push(serialized_opts);
 
         /* generate CSS styles for cols */
         for (i = opts.cols; i >= 0; i--) {
             styles += (opts.namespace + ' [data-col="'+ (i + 1) + '"] { left:' +
                 ((i * opts.widget_base_dimensions[0]) +
                 (i * opts.widget_margins[0]) +
-                ((i + 1) * opts.widget_margins[0])) + 'px; }\n');
+                ((i + 1) * opts.widget_margins[0])) + 'px;} ');
         }
 
         /* generate CSS styles for rows */
@@ -3362,19 +3370,19 @@
             styles += (opts.namespace + ' [data-row="' + (i + 1) + '"] { top:' +
                 ((i * opts.widget_base_dimensions[1]) +
                 (i * opts.widget_margins[1]) +
-                ((i + 1) * opts.widget_margins[1]) ) + 'px; }\n');
+                ((i + 1) * opts.widget_margins[1]) ) + 'px;} ');
         }
 
         for (var y = 1; y <= opts.rows; y++) {
             styles += (opts.namespace + ' [data-sizey="' + y + '"] { height:' +
                 (y * opts.widget_base_dimensions[1] +
-                (y - 1) * (opts.widget_margins[1] * 2)) + 'px; }\n');
+                (y - 1) * (opts.widget_margins[1] * 2)) + 'px;}');
         }
 
         for (var x = 1; x <= max_size_x; x++) {
             styles += (opts.namespace + ' [data-sizex="' + x + '"] { width:' +
                 (x * opts.widget_base_dimensions[0] +
-                (x - 1) * (opts.widget_margins[0] * 2)) + 'px; }\n');
+                (x - 1) * (opts.widget_margins[0] * 2)) + 'px;}');
         }
 
         return this.add_style_tag(styles);
@@ -3389,21 +3397,20 @@
     * @return {Object} Returns the instance of the Gridster class.
     */
     fn.add_style_tag = function(css) {
-      var d = document;
-      var tag = d.createElement('style');
+        var d = document;
+        var tag = d.createElement('style');
 
-      d.getElementsByTagName('head')[0].appendChild(tag);
-      tag.setAttribute('type', 'text/css');
+        tag.setAttribute('generated-from', 'gridster');
 
-      if (tag.styleSheet) {
-        tag.styleSheet.cssText = css;
-      }else{
-        tag.appendChild(document.createTextNode(css));
-      }
+        d.getElementsByTagName('head')[0].appendChild(tag);
+        tag.setAttribute('type', 'text/css');
 
-      this.$style_tags = this.$style_tags.add(tag);
-
-      return this;
+        if (tag.styleSheet) {
+            tag.styleSheet.cssText = css;
+        } else {
+            tag.appendChild(document.createTextNode(css));
+        }
+        return this;
     };
 
 
