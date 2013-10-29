@@ -758,7 +758,9 @@
             handle_append_to: '',
             handle_class: 'gs-resize-handle',
             max_size: [Infinity, Infinity]
-        }
+        },
+        grid: {},
+        throttle: 200
     };
 
     /**
