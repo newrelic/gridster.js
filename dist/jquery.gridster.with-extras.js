@@ -1,4 +1,4 @@
-/*! gridster.js - v0.2.0 - 2013-10-28
+/*! gridster.js - v0.2.1 - 2013-11-21
 * http://gridster.net/
 * Copyright (c) 2013 ducksboard; Licensed MIT */
 
@@ -63,7 +63,22 @@
         this.coords.cy = d.top + (d.height / 2);
         this.coords.width  = d.width;
         this.coords.height = d.height;
-        this.coords.el  = el || false ;
+        this.coords.el  = el || false;
+
+        if(el) {
+            // Moved from jquery.gridster.js to guarantee a '.grid' property is
+            // available. It had been piggybacked after the fact in
+            // `gridster.fn.register_widget`.
+            this.grid = {
+                'col': parseInt(el.attr('data-col'), 10),
+                'row': parseInt(el.attr('data-row'), 10),
+                'size_x': parseInt(el.attr('data-sizex'), 10),
+                'size_y': parseInt(el.attr('data-sizey'), 10),
+                'max_size_x': parseInt(el.attr('data-max-sizex'), 10) || false,
+                'max_size_y': parseInt(el.attr('data-max-sizey'), 10) || false,
+                'el': el
+            };
+        }
 
         return this;
     };
@@ -821,6 +836,12 @@
     *       @param {Array} [options.resize.max_size] Limit widget dimensions
     *        when resizing. Array values should be integers:
     *        `[max_cols_occupied, max_rows_occupied]`
+    *       @param {Function} [options.resize.start] Function executed
+    *        when resizing starts.
+    *       @param {Function} [otions.resize.resize] Function executed
+    *        during the resizing.
+    *       @param {Function} [options.resize.stop] Function executed
+    *        when resizing stops.
     *
     * @constructor
     */
@@ -1445,10 +1466,9 @@
             });
         }
 
-        // attach Coord object to player data-coord attribute
-        $el.data('coords', $el.coords());
-        // Extend Coord object with grid position info
-        $el.data('coords').grid = wgd;
+        // attach Coord object (including grid position info) to player
+        // data-coord attribute (cached in `$el.data('coords')`)
+        $el.coords();
 
         this.add_to_gridmap(wgd, $el);
 
@@ -1798,6 +1818,10 @@
         }).appendTo(this.$el);
 
         this.$resized_widget.addClass('resizing');
+
+		if (this.options.resize.start) {
+            this.options.resize.start.call(this, event, ui, this.$resized_widget);
+        }
     };
 
 
@@ -1824,6 +1848,10 @@
                     'min-height': ''
                 });
         }, this), 300);
+
+        if (this.options.resize.stop) {
+            this.options.resize.stop.call(this, event, ui, this.$resized_widget);
+        }
     };
 
     /**
@@ -1888,6 +1916,10 @@
                 'data-sizex': size_x,
                 'data-sizey': size_y
             });
+        }
+
+        if (this.options.resize.resize) {
+            this.options.resize.resize.call(this, event, ui, this.$resized_widget);
         }
 
         this.resize_last_sizex = size_x;
