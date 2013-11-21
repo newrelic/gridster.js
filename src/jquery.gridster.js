@@ -732,10 +732,9 @@
             });
         }
 
-        // attach Coord object to player data-coord attribute
-        $el.data('coords', $el.coords());
-        // Extend Coord object with grid position info
-        $el.data('coords').grid = wgd;
+        // attach Coord object (including grid position info) to player
+        // data-coord attribute (cached in `$el.data('coords')`)
+        $el.coords();
 
         this.add_to_gridmap(wgd, $el);
 

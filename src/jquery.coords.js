@@ -67,7 +67,22 @@
         this.coords.cy = d.top + (d.height / 2);
         this.coords.width  = d.width;
         this.coords.height = d.height;
-        this.coords.el  = el || false ;
+        this.coords.el  = el || false;
+
+        if(el) {
+            // Moved from jquery.gridster.js to guarantee a '.grid' property is
+            // available. It had been piggybacked after the fact in
+            // `gridster.fn.register_widget`.
+            this.grid = {
+                'col': parseInt(el.attr('data-col'), 10),
+                'row': parseInt(el.attr('data-row'), 10),
+                'size_x': parseInt(el.attr('data-sizex'), 10),
+                'size_y': parseInt(el.attr('data-sizey'), 10),
+                'max_size_x': parseInt(el.attr('data-max-sizex'), 10) || false,
+                'max_size_y': parseInt(el.attr('data-max-sizey'), 10) || false,
+                'el': el
+            };
+        }
 
         return this;
     };
