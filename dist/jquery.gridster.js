@@ -1,6 +1,6 @@
-/*! gridster.js - v0.2.1 - 2013-11-21
-* http://gridster.net/
-* Copyright (c) 2013 ducksboard; Licensed MIT */
+/*! gridster.js - v0.2.1 - 2013-12-26
+* https://github.com/newrelic/gridster.js
+* Copyright (c) 2013 Ian White; Licensed MIT */
 
 ;(function($, window, document, undefined){
     /**

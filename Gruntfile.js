@@ -122,8 +122,8 @@ module.exports = function(grunt) {
         "name": 'gridster.js',
         "description": 'gridster.js, a drag-and-drop multi-column jQuery grid plugin',
         "version": '0.1.0',
-        "url": 'http://gridster.net/',
-        "logo": 'https://ducksboard.com/static/images/svg/logo-ducksboard-black-small.svg',
+        "url": 'https://github.com/newrelic/gridster.js',
+        "logo": 'https://rpm.newrelic.com/images/v4/template/logo-newrelic-white.png?e7e6e4',
         options: {
           paths: "src/",
           outdir: "gh-pages/docs/"
