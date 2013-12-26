@@ -111,7 +111,7 @@
 
     //jQuery adapter
     $.fn.coords = function() {
-        if (this.data('coords') ) {
+        if (this.data('coords')) {
             return this.data('coords');
         }
 

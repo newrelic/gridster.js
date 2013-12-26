@@ -6,6 +6,8 @@
  * Licensed under the MIT licenses.
  */
 ;(function($, window, document, undefined) {
+    console.log('mooooo');
+
 
     var defaults = {
         namespace: '',
@@ -112,20 +114,20 @@
     * @constructor
     */
     function Gridster(el, options) {
-        this.options = $.extend(true, defaults, options);
+        this.options = $.extend(true, {}, defaults, options);
         this.$el = $(el);
         this.$wrapper = this.$el.parent();
         this.$widgets = this.$el.children(
             this.options.widget_selector).addClass('gs-w');
         this.widgets = [];
-        this.$changed = $([]);
+        this.$changed = $();
         this.wrapper_width = this.$wrapper.width();
         this.min_widget_width = (this.options.widget_margins[0] * 2) +
           this.options.widget_base_dimensions[0];
         this.min_widget_height = (this.options.widget_margins[1] * 2) +
           this.options.widget_base_dimensions[1];
 
-        this.$style_tags = $([]);
+        this.$style_tags = $();
 
         this.init();
     }
@@ -219,9 +221,9 @@
         size_x || (size_x = 1);
         size_y || (size_y = 1);
 
-        if (!col & !row) {
+        if (!(col || row)) {
             pos = this.next_position(size_x, size_y);
-        }else{
+        } else {
             pos = {
                 col: col,
                 row: row
@@ -235,14 +237,12 @@
                 'data-row': pos.row,
                 'data-sizex' : size_x,
                 'data-sizey' : size_y
-            }).addClass('gs-w').appendTo(this.$el).hide();
+            }).addClass('gs-w').appendTo(this.$el);
 
         this.$widgets = this.$widgets.add($w);
 
+        this.add_faux_rows(size_y);
         this.register_widget($w);
-
-        this.add_faux_rows(pos.size_y);
-        //this.add_faux_cols(pos.size_x);
 
         if (max_size) {
             this.set_widget_max_size($w, max_size);
@@ -250,7 +250,9 @@
 
         this.set_dom_grid_height();
 
-        return $w.fadeIn();
+        this.$el.trigger('gridster:add_widget', $w);
+
+        return $w;
     };
 
 
@@ -269,7 +271,7 @@
 
         if (!$widget.length) { return this; }
 
-        var wgd = $widget.data('coords').grid;
+        var wgd = $widget.coords().grid;
         wgd.max_size_x = max_size[0];
         wgd.max_size_y = max_size[1];
 
@@ -346,6 +348,8 @@
         if (callback) {
             callback.call(this, new_grid_data.size_x, new_grid_data.size_y);
         }
+
+        this.$el.trigger('gridster:resize_widget', [$widget, new_grid_data.size_x, new_grid_data.size_y]);
 
         return $widget;
     };
@@ -455,7 +459,7 @@
         $widget.removeClass('player-revert');
 
         //update coords instance attributes
-        $widget.data('coords').update({
+        $widget.coords().update({
             width: (new_wgd.size_x * this.options.widget_base_dimensions[0] +
                 ((new_wgd.size_x - 1) * this.options.widget_margins[0]) * 2),
             height: (new_wgd.size_y * this.options.widget_base_dimensions[1] +
@@ -630,21 +634,21 @@
 
         this.remove_from_gridmap(wgd);
 
-        $el.fadeOut($.proxy(function() {
-            $el.remove();
+        $el.remove();
 
-            if (!silent) {
-                $nexts.each($.proxy(function(i, widget) {
-                    this.move_widget_up( $(widget), wgd.size_y );
-                }, this));
-            }
+        if (!silent) {
+            $nexts.each($.proxy(function(i, widget) {
+                this.move_widget_up( $(widget), wgd.size_y );
+            }, this));
+        }
 
-            this.set_dom_grid_height();
+        this.set_dom_grid_height();
 
-            if (callback) {
-                callback.call(this, el);
-            }
-        }, this));
+        if (callback) {
+            callback.call(this, el, silent);
+        }
+
+        this.$el.trigger('gridster:remove_widget', [el, silent]);
 
         return this;
     };
@@ -719,9 +723,9 @@
             'el': $el
         };
 
-        if (this.options.avoid_overlapped_widgets &&
-            !this.can_move_to(
-             {size_x: wgd.size_x, size_y: wgd.size_y}, wgd.col, wgd.row)
+        if (
+            this.options.avoid_overlapped_widgets
+            && !this.can_move_to({size_x: wgd.size_x, size_y: wgd.size_y}, wgd.col, wgd.row)
         ) {
             $.extend(wgd, this.next_position(wgd.size_x, wgd.size_y));
             $el.attr({
@@ -904,7 +908,7 @@
           (this.player_grid_data.size_y * this.min_widget_height));
 
         var colliders = this.faux_grid;
-        var coords = this.$player.data('coords').coords;
+        var coords = this.$player.coords().coords;
 
         this.cells_occupied_by_player = this.get_cells_occupied(
             this.player_grid_data);
@@ -931,6 +935,7 @@
         if (this.options.draggable.start) {
           this.options.draggable.start.call(this, event, ui);
         }
+
     };
 
 
@@ -1333,7 +1338,7 @@
     * `can_not_go_up`. Each contains a set of HTMLElements.
     */
     fn.widgets_constraints = function($widgets) {
-        var $widgets_can_go_up = $([]);
+        var $widgets_can_go_up = $();
         var $widgets_can_not_go_up;
         var wgd_can_go_up = [];
         var wgd_can_not_go_up = [];
@@ -1638,7 +1643,7 @@
     */
     fn.get_widgets_under_player = function(cells) {
         cells || (cells = this.cells_occupied_by_player || {cols: [], rows: []});
-        var $widgets = $([]);
+        var $widgets = $();
 
         $.each(cells.cols, $.proxy(function(i, col) {
             $.each(cells.rows, $.proxy(function(i, row) {
@@ -1671,7 +1676,7 @@
                 size_x: phgd.size_x
             });
 
-        // Prevents widgets go out of the grid
+        // Prevents widgets from going out of the grid
         var right_col = (col + phgd.size_x - 1);
         if (right_col > this.cols) {
             col = col - (right_col - col);
@@ -1705,7 +1710,7 @@
             $widgets_under_ph.each($.proxy(function(i, widget) {
                 var $w = $(widget);
                 this.move_widget_down(
-                 $w, row + phgd.size_y - $w.data('coords').grid.row);
+                 $w, row + phgd.size_y - $w.coords().grid.row);
             }, this));
         }
 
@@ -1904,8 +1909,7 @@
     * @return {jQuery} Returns a jQuery collection of HTMLElements.
     */
     fn.get_widgets_overlapped = function() {
-        var $w;
-        var $widgets = $([]);
+        var $widgets = $();
         var used = [];
         var rows_from_bottom = this.cells_occupied_by_player.rows.slice(0);
         rows_from_bottom.reverse();
@@ -2235,7 +2239,7 @@
         var self = this;
         var ga = this.gridmap;
         var next_row = el_grid_data.row + el_grid_data.size_y - 1;
-        var $nexts = $([]);
+        var $nexts = $();
 
         this.for_each_column_occupied(el_grid_data, function(col) {
             self.for_each_widget_below(col, next_row, function(tcol, trow) {
@@ -2245,6 +2249,8 @@
                 }
             });
         });
+
+        console.log('nexts', $nexts);
 
         return this.sort_by_row_asc($nexts);
     };
@@ -2698,12 +2704,19 @@
     */
     fn.add_style_tag = function(css) {
         var d = document;
+        var head = d.getElementsByTagName('head')[0];
+        var existing = d.getElementById('gs-s');
         var tag = d.createElement('style');
 
-        tag.setAttribute('generated-from', 'gridster');
+        if (existing) {
+            head.removeChild(existing);
+        }
 
-        d.getElementsByTagName('head')[0].appendChild(tag);
+        head.appendChild(tag);
+
+        tag.setAttribute('generated-from', 'gridster');
         tag.setAttribute('type', 'text/css');
+        tag.setAttribute('id', 'gs-s');
 
         if (tag.styleSheet) {
             tag.styleSheet.cssText = css;
@@ -2722,6 +2735,7 @@
     */
     fn.remove_style_tags = function() {
         this.$style_tags.remove();
+        Gridster.generated_stylesheets = [];
     };
 
 
