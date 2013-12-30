@@ -1,4 +1,4 @@
-/*! gridster.js - v0.2.1 - 2013-12-27
+/*! gridster.js - v0.2.1 - 2013-12-31
 * https://github.com/newrelic/gridster.js
 * Copyright (c) 2013 Ian White; Licensed MIT */
 
@@ -115,6 +115,10 @@
         this.data('coords', ins);
         return ins;
     };
+
+    $.coords = function(obj) {
+        return new Coords(obj);
+    }
 
 }(jQuery, window, document));
 
@@ -740,9 +744,6 @@
 }(jQuery, window, document));
 
 ;(function($, window, document, undefined) {
-    console.log('mooooo');
-
-
     var defaults = {
         namespace: '',
         widget_selector: 'li',
@@ -752,7 +753,8 @@
         extra_cols: 0,
         min_cols: 1,
         max_cols: null,
-        min_rows: 15,
+        min_rows: 0,
+        max_rows: null,
         max_size_x: false,
         autogenerate_stylesheet: true,
         avoid_overlapped_widgets: true,
@@ -778,6 +780,19 @@
         },
         grid: {},
         throttle: 200
+    };
+
+    // Add a jquery 'reduce' function
+    $.fn.reduce = function(fn, token) {
+        if (Array.prototype.reduce) {
+            return Array.prototype.reduce.call(this, fn, token);
+        }
+        
+        this.each(function(i, value) {
+            token = fn.call(this, token, value, i, this);
+        });
+
+        return token;
     };
 
     /**
@@ -952,19 +967,22 @@
     */
     fn.add_widget = function(html, size_x, size_y, col, row, max_size) {
         var pos;
-        size_x || (size_x = 1);
-        size_y || (size_y = 1);
+        size_x = +size_x || 1;
+        size_y = +size_y || 1;
 
-        if (!(col || row)) {
+        if ((col === undefined || col === null) && (row === undefined || row === null)) {
             pos = this.next_position(size_x, size_y);
         } else {
             pos = {
                 col: col,
                 row: row
             };
-
-            this.empty_cells(col, row, size_x, size_y);
         }
+
+        rows = Math.max(0, (pos.row + size_y) - this.rows);
+        if(rows) this.add_faux_rows(rows);
+
+        // console.log('add widget', this.rows, rows, "args:", row, col, "pos:", pos.col, pos.row, "size:", size_x, size_y);
 
         var $w = $(html).attr({
                 'data-col': pos.col,
@@ -973,15 +991,14 @@
                 'data-sizey' : size_y
             }).addClass('gs-w').appendTo(this.$el);
 
-        this.$widgets = this.$widgets.add($w);
-
-        this.add_faux_rows(size_y);
-        this.register_widget($w);
-
         if (max_size) {
             this.set_widget_max_size($w, max_size);
         }
 
+        this.$widgets = this.$widgets.add($w);
+        this.register_widget($w);
+
+        // TODO: (IW) throttle?
         this.set_dom_grid_height();
 
         this.$el.trigger('gridster:add_widget', $w);
@@ -1308,8 +1325,9 @@
     *  widget coords.
     */
     fn.next_position = function(size_x, size_y) {
-        size_x || (size_x = 1);
-        size_y || (size_y = 1);
+        size_x = +size_x || 1;
+        size_y = +size_y || 1;
+        
         var ga = this.gridmap;
         var cols_l = ga.length;
         var valid_pos = [];
@@ -1354,6 +1372,8 @@
     fn.remove_widget = function(el, silent, callback) {
         var $el = el instanceof jQuery ? el : $(el);
         var wgd = $el.coords().grid;
+
+        // console.log('remove widget', arguments);
 
         // if silent is a function assume it's a callback
         if ($.isFunction(silent)) {
@@ -1461,7 +1481,11 @@
             this.options.avoid_overlapped_widgets
             && !this.can_move_to({size_x: wgd.size_x, size_y: wgd.size_y}, wgd.col, wgd.row)
         ) {
+            var og = $.extend({}, wgd);
             $.extend(wgd, this.next_position(wgd.size_x, wgd.size_y));
+
+            // console.log('moving widget', "from:", og.row, og.col, "to:", wgd.row, wgd.col, wgd.size_x, wgd.size_y);
+            
             $el.attr({
                 'data-col': wgd.col,
                 'data-row': wgd.row,
@@ -1528,13 +1552,6 @@
     */
     fn.add_to_gridmap = function(grid_data, value) {
         this.update_widget_position(grid_data, value || grid_data.el);
-
-        if (grid_data.el) {
-            var $widgets = this.widgets_below(grid_data.el);
-            $widgets.each($.proxy(function(i, widget) {
-                this.move_widget_up( $(widget));
-            }, this));
-        }
     };
 
 
@@ -2984,8 +3001,6 @@
             });
         });
 
-        console.log('nexts', $nexts);
-
         return this.sort_by_row_asc($nexts);
     };
 
@@ -3077,7 +3092,7 @@
             return false;
         }
 
-        if (max_row && max_row < row + widget_grid_data.size_y - 1) {
+        if (max_row && (max_row < (row + widget_grid_data.size_y - 1))) {
             return false;
         }
 
@@ -3483,16 +3498,21 @@
     * @return {Object} Returns the instance of the Gridster class.
     */
     fn.generate_faux_grid = function(rows, cols) {
+        rows || (rows = this.rows);
+        cols || (cols = this.cols);
+
+        var row, col;
+
         this.faux_grid = [];
         this.gridmap = [];
-        var col;
-        var row;
+
         for (col = cols; col > 0; col--) {
             this.gridmap[col] = [];
             for (row = rows; row > 0; row--) {
                 this.add_faux_cell(row, col);
             }
         }
+
         return this;
     };
 
@@ -3507,15 +3527,15 @@
     */
     fn.add_faux_cell = function(row, col) {
         var coords = $({
-                        left: this.baseX + ((col - 1) * this.min_widget_width),
-                        top: this.baseY + (row -1) * this.min_widget_height,
-                        width: this.min_widget_width,
-                        height: this.min_widget_height,
-                        col: col,
-                        row: row,
-                        original_col: col,
-                        original_row: row
-                    }).coords();
+            left: this.baseX + ((col - 1) * this.min_widget_width),
+            top: this.baseY + (row -1) * this.min_widget_height,
+            width: this.min_widget_width,
+            height: this.min_widget_height,
+            col: col,
+            row: row,
+            original_col: col,
+            original_row: row
+        }).coords();
 
         if (!$.isArray(this.gridmap[col])) {
             this.gridmap[col] = [];
@@ -3629,33 +3649,31 @@
     fn.generate_grid_and_stylesheet = function() {
         var aw = this.$wrapper.width();
         var ah = this.$wrapper.height();
-        var max_cols = this.options.max_cols;
+        var min_cols = this.options.min_cols || 0;
+        var min_rows = this.options.min_rows || 0;
+        var max_cols = this.options.max_cols || 0;
+        var max_rows = this.options.max_rows || 0;
+        var calc_cols, actual_cols, actual_roes, rows, cols;
 
-        var cols = Math.floor(aw / this.min_widget_width) +
+        var calc_cols = Math.floor(aw / this.min_widget_width) +
                    this.options.extra_cols;
 
-        var actual_cols = this.$widgets.map(function() {
-            return $(this).attr('data-col');
-        }).get();
+        actual_cols = this.$widgets.map(function() {
+            return (+$(this).attr('data-col')) + (+$(this).attr('data-sizex'));
+        }).get() || [0];
 
-        //needed to pass tests with phantomjs
-        actual_cols.length || (actual_cols = [0]);
+        actual_rows = this.$widgets.map(function() {
+            return (+$(this).attr('data-row')) + (+$(this).attr('data-sizey'));
+        }).get() || [0];
 
-        var min_cols = Math.max.apply(Math, actual_cols);
+        actual_cols = Math.max.apply(Math, actual_cols) + this.options.extra_cols;
+        actual_rows = Math.max.apply(Math, actual_rows) + this.options.extra_rows;
 
-        // get all rows that could be occupied by the current widgets
-        var max_rows = this.options.extra_rows;
-        this.$widgets.each(function(i, w) {
-            max_rows += (+$(w).attr('data-sizey'));
-        });
+        cols = Math.max(min_cols, actual_cols, calc_cols);
+        rows = Math.max(min_rows, actual_rows);
 
-        this.cols = Math.max(min_cols, cols, this.options.min_cols);
-
-        if (max_cols && max_cols >= min_cols && max_cols < this.cols) {
-            this.cols = max_cols;
-        }
-
-        this.rows = Math.max(max_rows, this.options.min_rows);
+        this.cols = max_cols ? Math.min(max_cols, cols) : cols;
+        this.rows = max_rows ? Math.min(max_rows, rows) : rows;
 
         this.baseX = ($(window).width() - aw) / 2;
         this.baseY = this.$wrapper.offset().top;

@@ -120,4 +120,8 @@
         return ins;
     };
 
+    $.coords = function(obj) {
+        return new Coords(obj);
+    }
+
 }(jQuery, window, document));
