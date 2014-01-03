@@ -1,8 +1,9 @@
 /*
  * jquery.draggable
- * https://github.com/ducksboard/gridster.js
+ * https://github.com/newrelic/gridster.js
  *
  * Copyright (c) 2012 ducksboard
+ * Copyright (c) 2014 New Relic
  * Licensed under the MIT licenses.
  */
 

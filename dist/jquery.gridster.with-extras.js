@@ -1,6 +1,6 @@
-/*! gridster.js - v0.2.1 - 2013-12-27
+/*! gridster.js - v0.2.1 - 2014-01-03
 * https://github.com/newrelic/gridster.js
-* Copyright (c) 2013 Ian White; Licensed MIT */
+* Copyright (c) 2014 Ian White; Licensed MIT */
 
 ;(function($, window, document, undefined){
     /**
@@ -740,9 +740,6 @@
 }(jQuery, window, document));
 
 ;(function($, window, document, undefined) {
-    console.log('mooooo');
-
-
     var defaults = {
         namespace: '',
         widget_selector: 'li',
@@ -752,7 +749,7 @@
         extra_cols: 0,
         min_cols: 1,
         max_cols: null,
-        min_rows: 15,
+        min_rows: 5,
         max_size_x: false,
         autogenerate_stylesheet: true,
         avoid_overlapped_widgets: true,
@@ -952,15 +949,16 @@
     */
     fn.add_widget = function(html, size_x, size_y, col, row, max_size) {
         var pos;
-        size_x || (size_x = 1);
-        size_y || (size_y = 1);
+        size_x = (+size_x) || 1;
+        size_y = (+size_y) || 1;
+
 
         if (!(col || row)) {
             pos = this.next_position(size_x, size_y);
         } else {
             pos = {
-                col: col,
-                row: row
+                col: (+col),
+                row: (+row)
             };
 
             this.empty_cells(col, row, size_x, size_y);
@@ -971,7 +969,11 @@
                 'data-row': pos.row,
                 'data-sizex' : size_x,
                 'data-sizey' : size_y
-            }).addClass('gs-w').appendTo(this.$el);
+            }).addClass('gs-w');
+
+        if(!$.contains(this.$el.get(), $w.get())) {
+            $w.appendTo(this.$el);
+        }
 
         this.$widgets = this.$widgets.add($w);
 
@@ -1091,7 +1093,7 @@
     /**
      * Resize all widgets based on a new set of size options.
      *
-     * See: https://github.com/ducksboard/gridster.js/pull/77
+     * See: https://github.com/newrelic/gridster.js/pull/77
      *      https://gist.github.com/OwlyCode/6421823
      *
      * @param  {Object} options Widget options (widget_margins, widget_base_dimensions)
@@ -1308,8 +1310,9 @@
     *  widget coords.
     */
     fn.next_position = function(size_x, size_y) {
-        size_x || (size_x = 1);
-        size_y || (size_y = 1);
+        size_x = +size_x || 1;
+        size_y = +size_y || 1;
+
         var ga = this.gridmap;
         var cols_l = ga.length;
         var valid_pos = [];
@@ -2983,8 +2986,6 @@
                 }
             });
         });
-
-        console.log('nexts', $nexts);
 
         return this.sort_by_row_asc($nexts);
     };
