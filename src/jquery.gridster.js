@@ -239,19 +239,25 @@
                 col: col,
                 row: row
             };
+
+            this.empty_cells(col, row, size_x, size_y);
         }
 
         rows = Math.max(0, (pos.row + size_y) - this.rows);
         if(rows) this.add_faux_rows(rows);
 
-        // console.log('add widget', this.rows, rows, "args:", row, col, "pos:", pos.col, pos.row, "size:", size_x, size_y);
+        console.log('add widget', "args:", row, col, "pos:", pos.row, pos.col, "size:", size_x, size_y, "pad rows:", rows);
 
         var $w = $(html).attr({
                 'data-col': pos.col,
                 'data-row': pos.row,
                 'data-sizex' : size_x,
                 'data-sizey' : size_y
-            }).addClass('gs-w').appendTo(this.$el);
+            }).addClass('gs-w');
+
+        if(!$.contains(this.$el.get(), $w.get())) {
+            $w.appendTo(this.$el);
+        }
 
         if (max_size) {
             this.set_widget_max_size($w, max_size);
@@ -635,7 +641,7 @@
         var $el = el instanceof jQuery ? el : $(el);
         var wgd = $el.coords().grid;
 
-        // console.log('remove widget', arguments);
+        console.log('remove widget', arguments);
 
         // if silent is a function assume it's a callback
         if ($.isFunction(silent)) {
@@ -746,7 +752,7 @@
             var og = $.extend({}, wgd);
             $.extend(wgd, this.next_position(wgd.size_x, wgd.size_y));
 
-            // console.log('moving widget', "from:", og.row, og.col, "to:", wgd.row, wgd.col, wgd.size_x, wgd.size_y);
+            console.log('moving widget', "from:", og.row, og.col, "to:", wgd.row, wgd.col, wgd.size_x, wgd.size_y);
             
             $el.attr({
                 'data-col': wgd.col,
