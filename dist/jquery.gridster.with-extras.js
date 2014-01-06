@@ -1,4 +1,4 @@
-/*! gridster.js - v0.2.1 - 2014-01-03
+/*! gridster.js - v0.2.1 - 2014-01-06
 * https://github.com/newrelic/gridster.js
 * Copyright (c) 2014 Ian White; Licensed MIT */
 
@@ -753,7 +753,7 @@
         extra_cols: 0,
         min_cols: 1,
         max_cols: null,
-        min_rows: 0,
+        min_rows: 5,
         max_rows: null,
         max_size_x: false,
         autogenerate_stylesheet: true,
@@ -780,19 +780,6 @@
         },
         grid: {},
         throttle: 200
-    };
-
-    // Add a jquery 'reduce' function
-    $.fn.reduce = function(fn, token) {
-        if (Array.prototype.reduce) {
-            return Array.prototype.reduce.call(this, fn, token);
-        }
-        
-        this.each(function(i, value) {
-            token = fn.call(this, token, value, i, this);
-        });
-
-        return token;
     };
 
     /**
@@ -974,8 +961,8 @@
             pos = this.next_position(size_x, size_y);
         } else {
             pos = {
-                col: col,
-                row: row
+                col: (+col),
+                row: (+row)
             };
 
             this.empty_cells(col, row, size_x, size_y);
@@ -1114,7 +1101,7 @@
     /**
      * Resize all widgets based on a new set of size options.
      *
-     * See: https://github.com/ducksboard/gridster.js/pull/77
+     * See: https://github.com/newrelic/gridster.js/pull/77
      *      https://gist.github.com/OwlyCode/6421823
      *
      * @param  {Object} options Widget options (widget_margins, widget_base_dimensions)
@@ -1333,7 +1320,7 @@
     fn.next_position = function(size_x, size_y) {
         size_x = +size_x || 1;
         size_y = +size_y || 1;
-        
+
         var ga = this.gridmap;
         var cols_l = ga.length;
         var valid_pos = [];
@@ -1558,6 +1545,13 @@
     */
     fn.add_to_gridmap = function(grid_data, value) {
         this.update_widget_position(grid_data, value || grid_data.el);
+
+        if (grid_data.el) {
+            var $widgets = this.widgets_below(grid_data.el);
+            $widgets.each($.proxy(function(i, widget) {
+                this.move_widget_up( $(widget));
+            }, this));
+        }
     };
 
 
@@ -3504,8 +3498,8 @@
     * @return {Object} Returns the instance of the Gridster class.
     */
     fn.generate_faux_grid = function(rows, cols) {
-        rows || (rows = this.rows);
-        cols || (cols = this.cols);
+        // rows || (rows = this.rows);
+        // cols || (cols = this.cols);
 
         var row, col;
 
