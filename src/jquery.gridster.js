@@ -215,19 +215,20 @@
     *  the widget that was just created.
     */
     fn.add_widget = function(html, size_x, size_y, col, row, max_size) {
-        var pos;
+        var pos, changed;
         size_x = +size_x || 1;
         size_y = +size_y || 1;
 
         if ((col === undefined || col === null) && (row === undefined || row === null)) {
             pos = this.next_position(size_x, size_y);
+            changed = true;
         } else {
             pos = {
                 col: (+col),
                 row: (+row)
             };
 
-            this.empty_cells(col, row, size_x, size_y);
+            this.empty_cells(pos.col, pos.row, size_x, size_y);
         }
 
         rows = Math.max(0, (pos.row + size_y) - this.rows);
@@ -242,7 +243,8 @@
                 'data-sizey' : size_y
             }).addClass('gs-w');
 
-        if(!$.contains(this.$el.get(), $w.get())) {
+        if(!$.contains(this.$el[0], $w[0])) {
+            console.log('appending widget', $w[0], this.$el[0]);
             $w.appendTo(this.$el);
         }
 
@@ -252,6 +254,11 @@
 
         this.$widgets = this.$widgets.add($w);
         this.register_widget($w);
+
+        if(changed || pos.col != $w.attr('data-col') || pos.row != $w.attr('data-row')) {
+            console.log('position changed on add');
+            this.$changed = this.$changed.add($w);
+        }
 
         // TODO: (IW) throttle?
         this.set_dom_grid_height();
@@ -313,14 +320,16 @@
     *  the left if there is insufficient space on the right.
     *  By default <code>size_x</code> is limited to the space available from
     *  the column where the widget begins, until the last column to the right.
-    * @param {Function} [callback] Function executed when the widget is removed.
+    * @param {Function} [callback] Function executed when the widget is resized.
     * @return {HTMLElement} Returns $widget.
     */
     fn.resize_widget = function($widget, size_x, size_y, reposition, callback) {
+        if(!($widget instanceof jQuery)) $widget = $(widget);
         var wgd = $widget.coords().grid;
-        reposition !== false && (reposition = true);
-        size_x || (size_x = wgd.size_x);
-        size_y || (size_y = wgd.size_y);
+
+        reposition = reposition !== false;
+        size_x = (+size_x) || wgd.size_x;
+        size_y = (+size_y) || wgd.size_y;
 
         if (size_x > this.cols) {
             size_x = this.cols;
@@ -348,7 +357,6 @@
         };
 
         this.mutate_widget_in_gridmap($widget, wgd, new_grid_data);
-
         this.set_dom_grid_height();
 
         if (callback) {
@@ -478,6 +486,7 @@
             'data-sizex': new_wgd.size_x,
             'data-sizey': new_wgd.size_y
         });
+        this.$changed = this.$changed.add($widget);
 
         if (empty_cols.length) {
             var cols_to_remove_holes = [
@@ -736,10 +745,7 @@
             this.options.avoid_overlapped_widgets
             && !this.can_move_to({size_x: wgd.size_x, size_y: wgd.size_y}, wgd.col, wgd.row)
         ) {
-            var og = $.extend({}, wgd);
             $.extend(wgd, this.next_position(wgd.size_x, wgd.size_y));
-
-            console.log('moving widget', "from:", og.row, og.col, "to:", wgd.row, wgd.col, wgd.size_x, wgd.size_y);
             
             $el.attr({
                 'data-col': wgd.col,
@@ -2979,11 +2985,11 @@
 
     //jQuery adapter
     $.fn.gridster = function(options) {
-     return this.each(function() {
-       if (!$(this).data('gridster')) {
-         $(this).data('gridster', new Gridster( this, options ));
-       }
-     });
+        return this.each(function() {
+            if (!$(this).data('gridster')) {
+               $(this).data('gridster', new Gridster( this, options ));
+            }
+        });
     };
 
     $.Gridster = fn;
