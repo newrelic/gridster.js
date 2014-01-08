@@ -972,7 +972,7 @@
         rows = Math.max(0, (pos.row + size_y) - this.rows);
         if(rows) this.add_faux_rows(rows);
 
-        console.log('add widget', "args:", row, col, "pos:", pos.row, pos.col, "size:", size_x, size_y, "pad rows:", rows);
+        // console.log('add widget', "args:", row, col, "pos:", pos.row, pos.col, "size:", size_x, size_y, "pad rows:", rows);
 
         var $w = $(html).attr({
                 'data-col': pos.col,
@@ -982,7 +982,7 @@
             }).addClass('gs-w');
 
         if(!$.contains(this.$el[0], $w[0])) {
-            console.log('appending widget', $w[0], this.$el[0]);
+            // console.log('appending widget', $w[0], this.$el[0]);
             $w.appendTo(this.$el);
         }
 
@@ -994,7 +994,7 @@
         this.register_widget($w);
 
         if(changed || pos.col != $w.attr('data-col') || pos.row != $w.attr('data-row')) {
-            console.log('position changed on add');
+            // console.log('position changed on add');
             this.$changed = this.$changed.add($w);
         }
 
@@ -1375,7 +1375,7 @@
         var $el = el instanceof jQuery ? el : $(el);
         var wgd = $el.coords().grid;
 
-        console.log('remove widget', arguments);
+        // console.log('remove widget', arguments);
 
         // if silent is a function assume it's a callback
         if ($.isFunction(silent)) {
