@@ -1,6 +1,6 @@
 /*! gridster.js - v0.2.1 - 2014-01-09
 * https://github.com/newrelic/gridster.js
-* Copyright (c) 2014 Ian White; Licensed MIT */
+* Copyright (c) 2014 ducksboard; Licensed MIT, New Relic */
 
 ;(function($, window, document, undefined){
     /**
