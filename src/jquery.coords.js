@@ -39,6 +39,22 @@
     fn.init = function(){
         this.set();
         this.original_coords = this.get();
+
+        if(this.el) {
+            var el = this.el;
+            // Moved from jquery.gridster.js to guarantee a '.grid' property is
+            // available. It had been piggybacked after the fact in
+            // `gridster.fn.register_widget`.
+            this.grid = {
+                'col': parseInt(el.attr('data-col'), 10),
+                'row': parseInt(el.attr('data-row'), 10),
+                'size_x': parseInt(el.attr('data-sizex'), 10),
+                'size_y': parseInt(el.attr('data-sizey'), 10),
+                'max_size_x': parseInt(el.attr('data-max-sizex'), 10) || false,
+                'max_size_y': parseInt(el.attr('data-max-sizey'), 10) || false,
+                'el': el
+            };
+        }
     };
 
 
@@ -69,33 +85,17 @@
         this.coords.height = d.height;
         this.coords.el  = el || false;
 
-        if(el) {
-            // Moved from jquery.gridster.js to guarantee a '.grid' property is
-            // available. It had been piggybacked after the fact in
-            // `gridster.fn.register_widget`.
-            this.grid = {
-                'col': parseInt(el.attr('data-col'), 10),
-                'row': parseInt(el.attr('data-row'), 10),
-                'size_x': parseInt(el.attr('data-sizex'), 10),
-                'size_y': parseInt(el.attr('data-sizey'), 10),
-                'max_size_x': parseInt(el.attr('data-max-sizex'), 10) || false,
-                'max_size_y': parseInt(el.attr('data-max-sizey'), 10) || false,
-                'el': el
-            };
-        }
-
         return this;
     };
 
 
-    fn.update = function(data){
+    fn.update = function(data) {
         if (!data && !this.el) {
             return this;
         }
 
         if (data) {
-            var new_data = $.extend({}, this.data, data);
-            this.data = new_data;
+            $.extend(this.data, data);
             return this.set(true, true);
         }
 
@@ -119,9 +119,5 @@
         this.data('coords', ins);
         return ins;
     };
-
-    $.coords = function(obj) {
-        return new Coords(obj);
-    }
 
 }(jQuery, window, document));
