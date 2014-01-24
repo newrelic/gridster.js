@@ -2957,11 +2957,11 @@
                    this.options.extra_cols;
 
         actual_cols = this.$widgets.map(function() {
-            return (+$(this).attr('data-col')) + (+$(this).attr('data-sizex'));
+            return (+$(this).attr('data-col')) + (+$(this).attr('data-sizex') - 1);
         }).add(0).get();
 
         actual_rows = this.$widgets.map(function() {
-            return (+$(this).attr('data-row')) + (+$(this).attr('data-sizey'));
+            return (+$(this).attr('data-row')) + (+$(this).attr('data-sizey') - 1);
         }).add(0).get();
 
         actual_cols = Math.max.apply(Math, actual_cols) + this.options.extra_cols;
