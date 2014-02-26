@@ -76,7 +76,7 @@
         this.disabled = false;
         this.events();
 
-        $(window).bind('resize.gridster-draggable',
+        $(window).on('resize.gridster-draggable',
             throttle($.proxy(this.calculate_positions, this), 200));
     };
 
@@ -89,8 +89,8 @@
 
         this.$body.on(pointer_events.end, $.proxy(function(e) {
             this.is_dragging = false;
-            if (this.disabled) { return; }
             this.$body.off(pointer_events.move);
+            if (this.disabled) { return; }
             if (this.drag_start) {
                 this.on_dragstop(e);
             }

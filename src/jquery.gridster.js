@@ -33,7 +33,7 @@
             items: '.gs-w',
             distance: 4
         },
-        resize: {
+        resizable: {
             enabled: false,
             axes: ['x', 'y', 'both'],
             handle_append_to: '',
@@ -89,24 +89,24 @@
     *    @param {Object} [options.draggable] An Object with all options for
     *     Draggable class you want to overwrite. See Draggable docs for more
     *     info.
-    *       @param {Object} [options.resize] An Object with resize config
+    *       @param {Object} [options.resizable] An Object with resizable config
     *        options.
-    *       @param {Boolean} [options.resize.enabled] Set to true to enable
+    *       @param {Boolean} [options.resizable.enabled] Set to true to enable
     *        resizing.
-    *       @param {Array} [options.resize.axes] Axes in which widgets can be
+    *       @param {Array} [options.resizable.axes] Axes in which widgets can be
     *        resized. Possible values: ['x', 'y', 'both'].
-    *       @param {String} [options.resize.handle_append_to] Set a valid CSS
-    *        selector to append resize handles to.
-    *       @param {String} [options.resize.handle_class] CSS class name used
+    *       @param {String} [options.resizable.handle_append_to] Set a valid CSS
+    *        selector to append resizable handles to.
+    *       @param {String} [options.resizable.handle_class] CSS class name used
     *        by resize handles.
-    *       @param {Array} [options.resize.max_size] Limit widget dimensions
+    *       @param {Array} [options.resizable.max_size] Limit widget dimensions
     *        when resizing. Array values should be integers:
     *        `[max_cols_occupied, max_rows_occupied]`
-    *       @param {Function} [options.resize.start] Function executed
+    *       @param {Function} [options.resizable.start] Function executed
     *        when resizing starts.
-    *       @param {Function} [otions.resize.resize] Function executed
+    *       @param {Function} [otions.resizable.resize] Function executed
     *        during the resizing.
-    *       @param {Function} [options.resize.stop] Function executed
+    *       @param {Function} [options.resizable.stop] Function executed
     *        when resizing stops.
     *
     * @constructor
@@ -135,15 +135,15 @@
     var fn = Gridster.prototype;
 
     fn.init = function() {
-        this.options.resize.enabled && this.setup_resize();
+        this.options.resizable.enabled && this.setup_resize();
         this.generate_grid_and_stylesheet();
         this.get_widgets_from_DOM();
         this.set_dom_grid_height();
         this.$wrapper.addClass('ready');
         this.draggable();
-        this.options.resize.enabled && this.resizable();
+        this.options.resizable.enabled && this.resizable();
 
-        $(window).bind('resize.gridster', throttle(
+        $(window).on('resize.gridster', throttle(
             $.proxy(this.recalculate_faux_grid, this), 200));
     };
 
@@ -305,7 +305,7 @@
     * @return {HTMLElement} Returns instance of gridster Class.
     */
     fn.add_resize_handle = function($w) {
-        var append_to = this.options.resize.handle_append_to;
+        var append_to = this.options.resizable.handle_append_to;
         $(this.resize_handle_tpl).appendTo( append_to ? $(append_to, $w) : $w);
 
         return this;
@@ -368,6 +368,7 @@
         }
 
         this.$el.trigger('gridster:resize_widget', [$widget, new_grid_data.size_x, new_grid_data.size_y]);
+        this.widget_changed($widget);
 
         return $widget;
     };
@@ -787,7 +788,7 @@
 
         this.add_to_gridmap(wgd, $el);
 
-        this.options.resize.enabled && this.add_resize_handle($el);
+        this.options.resizable.enabled && this.add_resize_handle($el);
 
         return this;
     };
@@ -867,7 +868,7 @@
             offset_left: this.options.widget_margins[0],
             container_width: this.container_width,
             ignore_dragging: ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON',
-                '.' + this.options.resize.handle_class],
+                '.' + this.options.resizable.handle_class],
             start: function(event, ui) {
                 self.$widgets.filter('.player-revert')
                     .removeClass('player-revert');
@@ -903,7 +904,7 @@
     */
     fn.resizable = function() {
         this.resize_api = this.$el.drag({
-            items: '.' + this.options.resize.handle_class,
+            items: '.' + this.options.resizable.handle_class,
             offset_left: this.options.widget_margins[0],
             container_width: this.container_width,
             move_element: false,
@@ -927,8 +928,8 @@
     * @return {Class} Returns instance of gridster Class.
     */
     fn.setup_resize = function() {
-        this.resize_handle_class = this.options.resize.handle_class;
-        var axes = this.options.resize.axes;
+        this.resize_handle_class = this.options.resizable.handle_class;
+        var axes = this.options.resizable.axes;
         var handle_tpl = '<span class="' + this.resize_handle_class + ' ' +
             this.resize_handle_class + '-{type}" />';
 
@@ -1113,9 +1114,9 @@
         this.resize_last_sizex = this.resize_initial_sizex;
         this.resize_last_sizey = this.resize_initial_sizey;
         this.resize_max_size_x = Math.min(this.resize_wgd.max_size_x ||
-            this.options.resize.max_size[0], this.cols - this.resize_wgd.col + 1);
+            this.options.resizable.max_size[0], this.cols - this.resize_wgd.col + 1);
         this.resize_max_size_y = this.resize_wgd.max_size_y ||
-            this.options.resize.max_size[1];
+            this.options.resizable.max_size[1];
 
         this.resize_dir = {
             right: ui.$player.is('.' + this.resize_handle_class + '-x'),
@@ -1140,8 +1141,8 @@
 
         this.$resized_widget.addClass('resizing');
 
-		if (this.options.resize.start) {
-            this.options.resize.start.call(this, event, ui, this.$resized_widget);
+		if (this.options.resizable.start) {
+            this.options.resizable.start.call(this, event, ui, this.$resized_widget);
         }
     };
 
@@ -1170,8 +1171,8 @@
                 });
         }, this), 300);
 
-        if (this.options.resize.stop) {
-            this.options.resize.stop.call(this, event, ui, this.$resized_widget);
+        if (this.options.resizable.stop) {
+            this.options.resizable.stop.call(this, event, ui, this.$resized_widget);
         }
     };
 
@@ -1239,8 +1240,8 @@
             });
         }
 
-        if (this.options.resize.resize) {
-            this.options.resize.resize.call(this, event, ui, this.$resized_widget);
+        if (this.options.resizable.resize) {
+            this.options.resizable.resize.call(this, event, ui, this.$resized_widget);
         }
 
         this.resize_last_sizex = size_x;
@@ -2994,11 +2995,12 @@
      * @method destroy
      * @return {undefined}
      */
-    fn.destroy = function(){
+    fn.destroy = function() {
         // remove bound callback on window resize
-        $(window).unbind('.gridster');
+        $(window).off('.gridster');
 
         if (this.drag_api) {
+            this.disable();
             this.drag_api.destroy();
         }
 
