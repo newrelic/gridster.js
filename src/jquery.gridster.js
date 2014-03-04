@@ -194,6 +194,9 @@
     * @return {Class} Returns instance of gridster Class.
     */
     fn.enable_resize = function() {
+        //
+        // TODO: (IW) Can we just reuse the drag_api here?
+        // 
         this.$el.removeClass('gs-resize-disabled');
         this.resize_api.enable();
         return this;
@@ -3002,6 +3005,10 @@
         if (this.drag_api) {
             this.disable();
             this.drag_api.destroy();
+        }
+        if (this.resize_api) {
+            this.disable_resize();
+            this.resize_api.destroy();
         }
 
         this.remove_style_tags();
