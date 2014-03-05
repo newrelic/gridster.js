@@ -307,6 +307,7 @@
 
     fn.on_dragstop = function(e) {
         var data = this.get_drag_data(e);
+
         this.drag_start = false;
 
         if (this.options.stop) {

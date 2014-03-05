@@ -119,11 +119,6 @@
             this.options.widget_selector).addClass('gs-w');
         this.widgets = [];
         this.$changed = $([]);
-        this.wrapper_width = this.$wrapper.width();
-        this.min_widget_width = (this.options.widget_margins[0] * 2) +
-          this.options.widget_base_dimensions[0];
-        this.min_widget_height = (this.options.widget_margins[1] * 2) +
-          this.options.widget_base_dimensions[1];
 
         this.$style_tags = $([]);
 
@@ -136,6 +131,7 @@
 
     fn.init = function() {
         this.options.resizable.enabled && this.setup_resize();
+        this.recalculate_widget_dimensions();
         this.generate_grid_and_stylesheet();
         this.get_widgets_from_DOM();
         this.set_dom_grid_height();
@@ -143,8 +139,9 @@
         this.draggable();
         this.options.resizable.enabled && this.resizable();
 
-        $(window).on('resize.gridster', throttle(
-            $.proxy(this.recalculate_faux_grid, this), 200));
+        var delay = this.options.throttle || 100;
+        $(window).on('resize.gridster', debounce(
+            $.proxy(this.recalculate_faux_grid, this), delay));
     };
 
 
@@ -249,7 +246,6 @@
             }).addClass('gs-w');
 
         if(!$.contains(this.$el[0], $w[0])) {
-            // console.log('appending widget', $w[0], this.$el[0]);
             $w.appendTo(this.$el);
         }
 
@@ -260,10 +256,7 @@
         this.$widgets = this.$widgets.add($w);
         this.register_widget($w);
 
-        // console.log('add widget', col, row, "@", pos.col, pos.row, ", size:", size_x, size_y, ", rows:", this.rows, '(', rows, ')');
-
         if(changed || pos.col != $w.attr('data-col') || pos.row != $w.attr('data-row')) {
-            // console.log('position changed on add');
             this.widget_changed($w);
         }
 
@@ -376,40 +369,6 @@
         return $widget;
     };
 
-    /**
-     * Resize all widgets based on a new set of size options.
-     *
-     * See: https://github.com/newrelic/gridster.js/pull/77
-     *      https://gist.github.com/OwlyCode/6421823
-     *
-     * @param  {Object} options Widget options (widget_margins, widget_base_dimensions)
-     * @return {HTMLElement} Returns instance of gridster Class.
-     */
-    fn.resize_widget_dimensions = function(options) {
-        if (options.widget_margins) {
-            this.options.widget_margins = options.widget_margins;
-        }
-
-        if (options.widget_base_dimensions) {
-             this.options.widget_base_dimensions = options.widget_base_dimensions;
-        }
-
-        this.min_widget_width  = (this.options.widget_margins[0] * 2) + this.options.widget_base_dimensions[0];
-        this.min_widget_height = (this.options.widget_margins[1] * 2) + this.options.widget_base_dimensions[1];
-
-        var serializedGrid = this.serialize();
-        this.$widgets.each($.proxy(function(i, widget) {
-            var $widget = $(widget);
-            this.resize_widget($widget);
-        }, this));
-
-        this.generate_grid_and_stylesheet();
-        this.get_widgets_from_DOM();
-        this.set_dom_grid_height();
-
-        return this;
-    };
-
 
     /**
     * Mutate widget dimensions and position in the grid map.
@@ -482,9 +441,9 @@
 
         //update coords instance attributes
         $widget.coords().update({
-            width: (new_wgd.size_x * this.options.widget_base_dimensions[0] +
+            width: (new_wgd.size_x * this.widget_base_width +
                 ((new_wgd.size_x - 1) * this.options.widget_margins[0]) * 2),
-            height: (new_wgd.size_y * this.options.widget_base_dimensions[1] +
+            height: (new_wgd.size_y * this.widget_base_height +
                 ((new_wgd.size_y - 1) * this.options.widget_margins[1]) * 2)
         });
 
@@ -549,8 +508,6 @@
             if (wgd.row >= (row + size_y)) return;
 
             diff = (row + size_y) - wgd.row;
-
-            // console.log('moving', wgd.col, wgd.row, 'down to', wgd.col, wgd.row + diff);
             this.move_widget_down($(w), diff);
         }, this));
 
@@ -650,8 +607,6 @@
         var $el = el instanceof jQuery ? el : $(el);
         var wgd = $el.coords().grid;
 
-        // console.log('remove widget', arguments);
-
         // if silent is a function assume it's a callback
         if ($.isFunction(silent)) {
             callback = silent;
@@ -726,12 +681,12 @@
     * @return {Array} Returns an Array of Objects with the data specified in
     *  the serialize_params option.
     */
-    fn.serialize = function($widgets) {
+    fn.serialize = function($widgets, serialize_params) {
         $widgets || ($widgets = this.$widgets);
+        serialize_params || (serialize_params = this.options.serialize_params);
         var result = [];
         $widgets.each($.proxy(function(i, widget) {
-            result.push(this.options.serialize_params(
-                $(widget), $(widget).coords().grid ) );
+            result.push(serialize_params($(widget), $(widget).coords().grid));
         }, this));
 
         return result;
@@ -743,11 +698,14 @@
     * (position/size).
     *
     * @method serialize_changed
+    * @param {Boolean} reset clear changes after serializing
     * @return {Array} Returns an Array of Objects with the data specified in
     *  the serialize_params option.
     */
-    fn.serialize_changed = function() {
-        return this.serialize(this.$changed);
+    fn.serialize_changed = function(reset) {
+        var $changed = this.serialize(this.$changed);
+        if(reset) this.$changed = $([]);
+        return $changed;
     };
 
 
@@ -774,8 +732,6 @@
             && !this.can_move_to({size_x: wgd.size_x, size_y: wgd.size_y}, wgd.col, wgd.row)
         ) {
             $.extend(wgd, this.next_position(wgd.size_x, wgd.size_y));
-
-            // console.log('widget overlap, moving to', wgd.col, wgd.row);
             
             $el.attr({
                 'data-col': wgd.col,
@@ -869,7 +825,6 @@
         var self = this;
         var draggable_options = $.extend(true, {}, this.options.draggable, {
             offset_left: this.options.widget_margins[0],
-            container_width: this.container_width,
             ignore_dragging: ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON',
                 '.' + this.options.resizable.handle_class],
             start: function(event, ui) {
@@ -909,7 +864,6 @@
         this.resize_api = this.$el.drag({
             items: '.' + this.options.resizable.handle_class,
             offset_left: this.options.widget_margins[0],
-            container_width: this.container_width,
             move_element: false,
             start: $.proxy(this.on_start_resize, this),
             stop: $.proxy(function(event, ui) {
@@ -1127,8 +1081,8 @@
         };
 
         this.$resized_widget.css({
-            'min-width': this.options.widget_base_dimensions[0],
-            'min-height': this.options.widget_base_dimensions[1]
+            'min-width': this.widget_base_width,
+            'min-height': this.widget_base_height
         });
 
         var nodeName = this.$resized_widget.get(0).tagName;
@@ -1144,7 +1098,7 @@
 
         this.$resized_widget.addClass('resizing');
 
-		if (this.options.resizable.start) {
+    if (this.options.resizable.start) {
             this.options.resizable.start.call(this, event, ui, this.$resized_widget);
         }
     };
@@ -1189,17 +1143,17 @@
     fn.on_resize = function(event, ui) {
         var rel_x = (ui.pointer.diff_left);
         var rel_y = (ui.pointer.diff_top);
-        var wbd_x = this.options.widget_base_dimensions[0];
-        var wbd_y = this.options.widget_base_dimensions[1];
+        var wbd_x = this.widget_base_width;
+        var wbd_y = this.widget_base_height;
         var max_width = Infinity;
         var max_height = Infinity;
 
         var inc_units_x = Math.ceil((rel_x /
-                (this.options.widget_base_dimensions[0] +
+                (this.widget_base_width +
                     this.options.widget_margins[0] * 2)) - 0.2);
 
         var inc_units_y = Math.ceil((rel_y /
-                (this.options.widget_base_dimensions[1] +
+                (this.widget_base_height +
                  this.options.widget_margins[1] * 2)) - 0.2);
 
         var size_x = Math.max(1, this.resize_initial_sizex + inc_units_x);
@@ -1615,14 +1569,14 @@
     */
     fn.is_empty = function(col, row) {
         if (typeof this.gridmap[col] !== 'undefined') {
-			if(typeof this.gridmap[col][row] !== 'undefined' &&
-				 this.gridmap[col][row] === false
-			) {
-				return true;
-			}
-			return false;
-		}
-		return true;
+      if(typeof this.gridmap[col][row] !== 'undefined' &&
+         this.gridmap[col][row] === false
+      ) {
+        return true;
+      }
+      return false;
+    }
+    return true;
     };
 
 
@@ -2703,15 +2657,16 @@
         opts = $.extend({}, this.options, (opts || {}));
         opts.cols || (opts.cols = this.cols);
         opts.rows || (opts.rows = this.rows);
-        
-        opts.min_widget_width = (opts.widget_margins[0] * 2) + opts.widget_base_dimensions[0];
-        opts.min_widget_height = (opts.widget_margins[1] * 2) + opts.widget_base_dimensions[1];
 
+        opts.widget_base_width = this.widget_base_width;
+        opts.widget_base_height = this.widget_base_height;
+        opts.min_widget_width = this.min_widget_width;
+        opts.min_widget_height = this.min_widget_height;
 
         /* generate CSS styles for cols */
         for (i = opts.cols; i >= 0; i--) {
             styles += (opts.namespace + ' [data-col="'+ (i + 1) + '"] { left:' +
-                ((i * opts.widget_base_dimensions[0]) +
+                ((i * opts.widget_base_width) +
                 (i * opts.widget_margins[0]) +
                 ((i + 1) * opts.widget_margins[0])) + 'px;}\n');
         }
@@ -2720,7 +2675,7 @@
         styles += '\n';
         for (i = opts.rows; i >= 0; i--) {
             styles += (opts.namespace + ' [data-row="' + (i + 1) + '"] { top:' +
-                ((i * opts.widget_base_dimensions[1]) +
+                ((i * opts.widget_base_height) +
                 (i * opts.widget_margins[1]) +
                 ((i + 1) * opts.widget_margins[1]) ) + 'px;}\n');
         }
@@ -2728,14 +2683,14 @@
         styles += '\n';
         for (var y = 1; y <= opts.rows; y++) {
             styles += (opts.namespace + ' [data-sizey="' + y + '"] { height:' +
-                (y * opts.widget_base_dimensions[1] +
+                (y * opts.widget_base_height +
                 (y - 1) * (opts.widget_margins[1] * 2)) + 'px;}\n');
         }
 
         styles += '\n';
         for (var x = 1; x <= opts.max_size_x; x++) {
             styles += (opts.namespace + ' [data-sizex="' + x + '"] { width:' +
-                (x * opts.widget_base_dimensions[0] +
+                (x * opts.widget_base_width +
                 (x - 1) * (opts.widget_margins[0] * 2)) + 'px;}\n');
         }
 
@@ -2797,11 +2752,8 @@
     * @return {Object} Returns the instance of the Gridster class.
     */
     fn.generate_faux_grid = function(rows, cols) {
-        // rows || (rows = this.rows);
-        // cols || (cols = this.cols);
-
-        cols = (+cols) || this.cols;
         rows = (+rows) || this.rows;
+        cols = (+cols) || this.cols;
 
         var row, col;
 
@@ -2912,6 +2864,9 @@
     */
     fn.recalculate_faux_grid = function() {
         var aw = this.$wrapper.width();
+
+        this.resize_widget_dimensions();
+
         this.baseX = ($(window).width() - aw) / 2;
         this.baseY = this.$wrapper.offset().top;
 
@@ -2922,6 +2877,54 @@
             });
 
         }, this));
+
+        return this;
+    };
+
+
+    /**
+     * Realculates the base widget dimensions based on current grid settings.
+     * 
+     * @return {HTMLElement} Returns instance of gridster Class.
+     */
+    fn.recalculate_widget_dimensions = function() {
+        var wrapper_width = this.$wrapper.width();
+        var margins = this.options.widget_margins;
+        var cols = this.options.max_cols;
+        var rows = this.options.max_rows;
+
+        this.options.widget_base_dimensions || (this.options.widget_base_dimensions = [0,0]);
+
+        this.widget_base_width = this.options.widget_base_dimensions[0] || Math.ceil((wrapper_width - (margins[0] * cols * 2)) / cols);
+        // this.widget_base_height = this.options.widget_base_dimensions[1] || Math.floor((wrapper_height - (margins[1] * rows * 2)) / rows);
+        this.widget_base_height = this.options.widget_base_dimensions[1];
+
+        this.min_widget_width = (margins[0] * 2) + this.widget_base_width;
+        this.min_widget_height = (margins[1] * 2) + this.widget_base_height;
+
+        return this;
+    }
+
+
+    /**
+     * Resize all widgets to fit current grid dimensions.
+     *
+     * See: https://github.com/newrelic/gridster.js/pull/77
+     *      https://gist.github.com/OwlyCode/6421823
+     *
+     * @return {HTMLElement} Returns instance of gridster Class.
+     */
+    fn.resize_widget_dimensions = function() {
+        this.recalculate_widget_dimensions();
+
+        this.$widgets.each($.proxy(function(i, widget) {
+            this.resize_widget($(widget));
+        }, this));
+
+        // this.generate_stylesheet();
+        this.generate_grid_and_stylesheet();
+        this.get_widgets_from_DOM();
+        this.set_dom_grid_height();
 
         return this;
     };
@@ -2950,26 +2953,28 @@
     */
     fn.generate_grid_and_stylesheet = function() {
         var aw = this.$wrapper.width();
-        var ah = this.$wrapper.height();
         var min_cols = this.options.min_cols || 0;
         var min_rows = this.options.min_rows || 0;
         var max_cols = this.options.max_cols || 0;
         var max_rows = this.options.max_rows || 0;
+        var extra_cols = this.options.extra_cols || 0;
+        var extra_rows = this.options.extra_rows || 0;
         var calc_cols, actual_cols, actual_roes, rows, cols;
 
-        var calc_cols = Math.floor(aw / this.min_widget_width) +
-                   this.options.extra_cols;
+        var calc_cols = Math.floor(aw / this.min_widget_width) + extra_cols;
 
         actual_cols = this.$widgets.map(function() {
             return (+$(this).attr('data-col')) + (+$(this).attr('data-sizex') - 1);
-        }).add(0).get();
+        }).get();
+        actual_cols.push(0);
 
         actual_rows = this.$widgets.map(function() {
             return (+$(this).attr('data-row')) + (+$(this).attr('data-sizey') - 1);
-        }).add(0).get();
+        }).get();
+        actual_rows.push(0);
 
-        actual_cols = Math.max.apply(Math, actual_cols) + this.options.extra_cols;
-        actual_rows = Math.max.apply(Math, actual_rows) + this.options.extra_rows;
+        actual_cols = Math.max.apply(this, actual_cols) + extra_cols;
+        actual_rows = Math.max.apply(this, actual_rows) + extra_rows;
 
         cols = Math.max(min_cols, actual_cols, calc_cols);
         rows = Math.max(min_rows, actual_rows);
@@ -2982,7 +2987,7 @@
 
         // left and right gutters not included
         this.container_width = (this.cols *
-            this.options.widget_base_dimensions[0]) + ((this.cols - 1) * 2 *
+            this.widget_base_width) + ((this.cols - 1) * 2 *
             this.options.widget_margins[0]);
 
         if (this.options.autogenerate_stylesheet) {
