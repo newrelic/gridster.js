@@ -139,8 +139,8 @@
         this.draggable();
         this.options.resizable.enabled && this.resizable();
 
-        var delay = this.options.throttle || 100;
-        $(window).on('resize.gridster', debounce(
+        var delay = this.options.throttle;
+        $(window).on('resize.gridster', throttle(
             $.proxy(this.recalculate_faux_grid, this), delay));
     };
 
@@ -260,7 +260,6 @@
             this.widget_changed($w);
         }
 
-        // TODO: (IW) throttle?
         this.set_dom_grid_height();
 
         this.$el.trigger('gridster:add_widget', $w);
@@ -327,7 +326,7 @@
         if(!($widget instanceof jQuery)) $widget = $(widget);
         var wgd = $widget.coords().grid;
 
-        reposition = reposition !== false;
+        reposition = (reposition !== false);
         size_x = (+size_x) || wgd.size_x;
         size_y = (+size_y) || wgd.size_y;
 
@@ -360,11 +359,8 @@
         this.set_dom_grid_height();
 
         if (callback) {
-            callback.call(this, new_grid_data.size_x, new_grid_data.size_y);
+            callback.call(this, new_grid_data);
         }
-
-        this.$el.trigger('gridster:resize_widget', [$widget, new_grid_data.size_x, new_grid_data.size_y]);
-        this.widget_changed($widget);
 
         return $widget;
     };
@@ -381,6 +377,10 @@
     * @return {HTMLElement} Returns instance of gridster Class.
     */
     fn.mutate_widget_in_gridmap = function($widget, wgd, new_wgd) {
+        var changed = Object.keys(new_wgd).some(function(attr) {
+            return (new_wgd[attr] !== wgd[attr]);
+        });
+
         var old_size_x = wgd.size_x;
         var old_size_y = wgd.size_y;
 
@@ -430,10 +430,7 @@
         }
 
         // not the same that wgd = new_wgd;
-        wgd.col = new_wgd.col;
-        wgd.row = new_wgd.row;
-        wgd.size_x = new_wgd.size_x;
-        wgd.size_y = new_wgd.size_y;
+        $.extend(wgd, new_wgd);
 
         this.add_to_gridmap(new_wgd, $widget);
 
@@ -453,7 +450,6 @@
             'data-sizex': new_wgd.size_x,
             'data-sizey': new_wgd.size_y
         });
-        this.widget_changed($widget);
 
         if (empty_cols.length) {
             var cols_to_remove_holes = [
@@ -474,6 +470,8 @@
         }
 
         this.move_widget_up($widget);
+
+        if(changed) this.widget_changed($widget);
 
         return this;
     };
@@ -665,7 +663,9 @@
     fn.widget_changed = function($widget) {
         this.$changed = this.$changed.add($widget);
 
-        this.$el.trigger('gridster:widget_changed', $widget);
+        var data = this.serialize($widget).pop();
+        $widget.trigger('gridster:widget_changed', [$widget, data]);
+        // this.$el.trigger('gridster:widget_changed', [$widget, data]);
 
         return this;
     };
@@ -2635,11 +2635,19 @@
     * @method set_dom_grid_height
     * @return {Object} Returns the instance of the Gridster class.
     */
-    fn.set_dom_grid_height = function() {
-        var r = this.get_highest_occupied_cell().row;
-        this.$el.css('height', r * this.min_widget_height);
-        return this;
-    };
+    fn.set_dom_grid_height = (function () {
+        var _set_dom_grid_height = debounce(function() {
+            var r = this.get_highest_occupied_cell().row;
+            this.$el.css('height', r * this.min_widget_height);
+            return this;
+        }, 50);
+
+        // Return a wrapper fn that calls the debounced version
+        return function() {
+            _set_dom_grid_height.call(this);
+            return this;
+        }
+    }());
 
 
     /**
@@ -2878,6 +2886,8 @@
 
         }, this));
 
+        this.$el.trigger('gridster:resize');
+
         return this;
     };
 
@@ -2921,10 +2931,10 @@
             this.resize_widget($(widget));
         }, this));
 
-        // this.generate_stylesheet();
-        this.generate_grid_and_stylesheet();
-        this.get_widgets_from_DOM();
-        this.set_dom_grid_height();
+        this.generate_stylesheet();
+        // this.generate_grid_and_stylesheet();
+        // this.get_widgets_from_DOM();
+        // this.set_dom_grid_height();
 
         return this;
     };
