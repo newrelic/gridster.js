@@ -23,12 +23,12 @@ module.exports = function(grunt) {
         banner: '<%= meta.banner %>'
       },
       dist_js: {
-        src: ['src/jquery.coords.js', 'src/jquery.collision.js', 'src/utils.js', 'src/jquery.draggable.js', 'src/jquery.<%= pkg.name %>.js'],
+        src: ['src/utils.js', 'src/jquery.coords.js', 'src/jquery.collision.js', 'src/jquery.draggable.js', 'src/jquery.<%= pkg.name %>.js'],
         dest: 'dist/jquery.<%= pkg.name %>.js'
       },
 
       dist_extras_js: {
-        src: ['src/jquery.coords.js', 'src/jquery.collision.js', 'src/utils.js', 'src/jquery.draggable.js', 'src/jquery.<%= pkg.name %>.js', 'src/jquery.<%= pkg.name %>.extras.js'],
+        src: ['src/utils.js', 'src/jquery.coords.js', 'src/jquery.collision.js', 'src/jquery.draggable.js', 'src/jquery.<%= pkg.name %>.js', 'src/jquery.<%= pkg.name %>.extras.js'],
         dest: 'dist/jquery.<%= pkg.name %>.with-extras.js'
       },
 
@@ -38,12 +38,12 @@ module.exports = function(grunt) {
       },
 
       dist_demo_js: {
-        src: ['src/jquery.coords.js', 'src/jquery.collision.js', 'src/utils.js', 'src/jquery.draggable.js', 'src/jquery.<%= pkg.name %>.js'],
+        src: ['src/utils.js', 'src/jquery.coords.js', 'src/jquery.collision.js', 'src/jquery.draggable.js', 'src/jquery.<%= pkg.name %>.js'],
         dest: 'gh-pages/dist/jquery.<%= pkg.name %>.js'
       },
 
       dist_extras_demo_js: {
-        src: ['src/jquery.coords.js', 'src/jquery.collision.js', 'src/utils.js', 'src/jquery.draggable.js', 'src/jquery.<%= pkg.name %>.js', 'src/jquery.<%= pkg.name %>.extras.js'],
+        src: ['src/utils.js', 'src/jquery.coords.js', 'src/jquery.collision.js', 'src/jquery.draggable.js', 'src/jquery.<%= pkg.name %>.js', 'src/jquery.<%= pkg.name %>.extras.js'],
         dest: 'gh-pages/dist/jquery.<%= pkg.name %>.with-extras.js'
       },
 
