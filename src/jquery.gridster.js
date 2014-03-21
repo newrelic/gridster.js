@@ -30,6 +30,7 @@
         },
         collision: {},
         draggable: {
+            enabled: true,
             items: '.gs-w',
             distance: 4
         },
@@ -41,7 +42,7 @@
             max_size: [Infinity, Infinity]
         },
         grid: {},
-        throttle: 200
+        throttle: 50
     };
 
     /**
@@ -89,25 +90,25 @@
     *    @param {Object} [options.draggable] An Object with all options for
     *     Draggable class you want to overwrite. See Draggable docs for more
     *     info.
-    *       @param {Object} [options.resizable] An Object with resizable config
-    *        options.
-    *       @param {Boolean} [options.resizable.enabled] Set to true to enable
-    *        resizing.
-    *       @param {Array} [options.resizable.axes] Axes in which widgets can be
-    *        resized. Possible values: ['x', 'y', 'both'].
-    *       @param {String} [options.resizable.handle_append_to] Set a valid CSS
-    *        selector to append resizable handles to.
-    *       @param {String} [options.resizable.handle_class] CSS class name used
-    *        by resize handles.
-    *       @param {Array} [options.resizable.max_size] Limit widget dimensions
-    *        when resizing. Array values should be integers:
-    *        `[max_cols_occupied, max_rows_occupied]`
-    *       @param {Function} [options.resizable.start] Function executed
-    *        when resizing starts.
-    *       @param {Function} [otions.resizable.resize] Function executed
-    *        during the resizing.
-    *       @param {Function} [options.resizable.stop] Function executed
-    *        when resizing stops.
+    *    @param {Object} [options.resizable] An Object with resizable config
+    *     options.
+    *    @param {Boolean} [options.resizable.enabled] Set to true to enable
+    *     resizing.
+    *    @param {Array} [options.resizable.axes] Axes in which widgets can be
+    *     resized. Possible values: ['x', 'y', 'both'].
+    *    @param {String} [options.resizable.handle_append_to] Set a valid CSS
+    *     selector to append resizable handles to.
+    *    @param {String} [options.resizable.handle_class] CSS class name used
+    *     by resize handles.
+    *    @param {Array} [options.resizable.max_size] Limit widget dimensions
+    *     when resizing. Array values should be integers:
+    *     `[max_cols_occupied, max_rows_occupied]`
+    *    @param {Function} [options.resizable.start] Function executed
+    *     when resizing starts.
+    *    @param {Function} [otions.resizable.resize] Function executed
+    *     during the resizing.
+    *    @param {Function} [options.resizable.stop] Function executed
+    *     when resizing stops.
     *
     * @constructor
     */
@@ -130,23 +131,39 @@
     var fn = Gridster.prototype;
 
     fn.init = function() {
-        this.options.resizable.enabled && this.setup_resize();
+        this.setup_resize();
         this.recalculate_widget_dimensions();
         this.generate_grid_and_stylesheet();
         this.get_widgets_from_DOM();
         this.set_dom_grid_height();
         this.$wrapper.addClass('ready');
-        this.draggable();
-        this.options.resizable.enabled && this.resizable();
+        this.enable();
 
-        var delay = this.options.throttle;
         $(window).on('resize.gridster', throttle(
-            $.proxy(this.recalculate_faux_grid, this), delay));
+            $.proxy(this.recalculate_faux_grid, this), this.options.throttle));
     };
 
 
     /**
-    * Disables dragging.
+    * Enables dragging/resizing.
+    *
+    * @method enable
+    * @return {Class} Returns the instance of the Gridster Class.
+    */
+    fn.enable = function() {
+        if(this.options.draggable.enabled) {
+            this.drag_api ? this.drag_api.enable() : this.draggable();
+        }
+
+        if(this.options.resizable.enabled) {
+            this.resize_api ? this.resize_api.enable() : this.resizable();
+        }
+        return this;
+    };
+
+
+    /**
+    * Disables dragging/resizing.
     *
     * @method disable
     * @return {Class} Returns the instance of the Gridster Class.
@@ -154,48 +171,7 @@
     fn.disable = function() {
         this.$wrapper.find('.player-revert').removeClass('player-revert');
         this.drag_api.disable();
-        return this;
-    };
-
-
-    /**
-    * Enables dragging.
-    *
-    * @method enable
-    * @return {Class} Returns the instance of the Gridster Class.
-    */
-    fn.enable = function() {
-        this.drag_api.enable();
-        return this;
-    };
-
-
-
-    /**
-    * Disables drag-and-drop widget resizing.
-    *
-    * @method disable
-    * @return {Class} Returns instance of gridster Class.
-    */
-    fn.disable_resize = function() {
-        this.$el.addClass('gs-resize-disabled');
         this.resize_api.disable();
-        return this;
-    };
-
-
-    /**
-    * Enables drag-and-drop widget resizing.
-    *
-    * @method enable
-    * @return {Class} Returns instance of gridster Class.
-    */
-    fn.enable_resize = function() {
-        //
-        // TODO: (IW) Can we just reuse the drag_api here?
-        // 
-        this.$el.removeClass('gs-resize-disabled');
-        this.resize_api.enable();
         return this;
     };
 
@@ -826,7 +802,7 @@
         var draggable_options = $.extend(true, {}, this.options.draggable, {
             offset_left: this.options.widget_margins[0],
             ignore_dragging: ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON',
-                '.' + this.options.resizable.handle_class],
+                '.' + this.resize_handle_class],
             start: function(event, ui) {
                 self.$widgets.filter('.player-revert')
                     .removeClass('player-revert');
@@ -861,8 +837,10 @@
     * @return {Class} Returns instance of gridster Class.
     */
     fn.resizable = function() {
+        var self = this;
+
         this.resize_api = this.$el.drag({
-            items: '.' + this.options.resizable.handle_class,
+            items: '.' + this.resize_handle_class,
             offset_left: this.options.widget_margins[0],
             move_element: false,
             start: $.proxy(this.on_start_resize, this),
@@ -871,7 +849,9 @@
                     this.on_stop_resize(event, ui);
                 }, this), 120);
             }, this),
-            drag: throttle($.proxy(this.on_resize, this), 60)
+            drag: throttle($.proxy(this.on_resize, this), 60),
+            enable: function() { self.$el.removeClass('gs-resize-disabled'); },
+            disable: function() { self.$el.addClass('gs-resize-disabled'); }
         });
 
         return this;
@@ -885,6 +865,8 @@
     * @return {Class} Returns instance of gridster Class.
     */
     fn.setup_resize = function() {
+        // if(!this.options.resizable.enabled) return this;
+
         this.resize_handle_class = this.options.resizable.handle_class;
         var axes = this.options.resizable.axes;
         var handle_tpl = '<span class="' + this.resize_handle_class + ' ' +
@@ -893,6 +875,7 @@
         this.resize_handle_tpl = $.map(axes, function(type) {
             return handle_tpl.replace('{type}', type);
         }).join('');
+
         return this;
     };
 
@@ -1098,7 +1081,7 @@
 
         this.$resized_widget.addClass('resizing');
 
-    if (this.options.resizable.start) {
+        if (this.options.resizable.start) {
             this.options.resizable.start.call(this, event, ui, this.$resized_widget);
         }
     };
@@ -2639,7 +2622,6 @@
         var _set_dom_grid_height = debounce(function() {
             var r = this.get_highest_occupied_cell().row;
             this.$el.css('height', r * this.min_widget_height);
-            return this;
         }, 50);
 
         // Return a wrapper fn that calls the debounced version
@@ -3008,29 +2990,25 @@
     };
 
     /**
-     * Destroy this gridster by removing any sign of its presence, making it easy to avoid memory leaks
+     * Destroy this gridster by removing any sign of its presence, making it
+     * easy to avoid memory leaks
      *
      * @method destroy
      * @return {undefined}
      */
     fn.destroy = function() {
-        // remove bound callback on window resize
+        // remove window resize listener
         $(window).off('.gridster');
 
-        if (this.drag_api) {
-            this.disable();
-            this.drag_api.destroy();
-        }
-        if (this.resize_api) {
-            this.disable_resize();
-            this.resize_api.destroy();
-        }
+        this.disable();
+        if(this.drag_api) this.drag_api.destroy();
+        if(this.resize_api) this.resize_api.destroy();
 
         this.remove_style_tags();
 
         // lastly, remove gridster element
-        // this will additionally cause any data associated to this element to be removed, including this
-        // very gridster instance
+        // this will additionally cause any data associated to this element to
+        // be removed, including this very gridster instance
         this.$el.remove();
 
         return this;

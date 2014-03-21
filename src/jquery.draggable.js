@@ -14,6 +14,7 @@
         limit: true,
         offset_left: 0,
         autoscroll: true,
+        scroll_speed: 10,
         ignore_dragging: ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'],
         handle: null,
         container_width: 0,  // 0 == auto
@@ -21,7 +22,9 @@
         helper: false  // or 'clone'
         // drag: function(e) {},
         // start : function(e, ui) {},
-        // stop : function(e) {}
+        // stop : function(e) {},
+        // enable : function(e) {},
+        // disable : function(e) {}
     };
 
     var $window = $(window);
@@ -70,6 +73,7 @@
 
     var fn = Draggable.prototype;
 
+
     fn.init = function() {
         this.calculate_positions();
         this.$container.css('position', 'relative');
@@ -79,6 +83,7 @@
         $(window).on('resize.gridster-draggable',
             throttle($.proxy(this.calculate_positions, this), 200));
     };
+
 
     fn.events = function() {
         this.$container.on('selectstart.gridster-draggable',
@@ -96,6 +101,7 @@
             }
         }, this));
     };
+
 
     fn.get_actual_pos = function($el) {
         var pos = $el.position();
@@ -159,38 +165,48 @@
     };
 
 
-    fn.manage_scroll = function(data) {
-        /* scroll document */
-        var nextScrollTop;
-        var scrollTop = $window.scrollTop();
-        var min_window_y = scrollTop;
-        var max_window_y = min_window_y + this.window_height;
+    fn.manage_scroll = (function () {
+        var _manage_scroll = throttle(function(data) {
+            /* scroll document */
+            var nextScrollTop;
+            var scrollTop = $window.scrollTop();
+            var min_window_y = scrollTop;
+            var max_window_y = min_window_y + this.window_height;
 
-        var mouse_down_zone = max_window_y - 50;
-        var mouse_up_zone = min_window_y + 50;
+            var mouse_down_zone = max_window_y - 50;
+            var mouse_up_zone = min_window_y + 50;
 
-        var abs_mouse_left = data.pointer.left;
-        var abs_mouse_top = min_window_y + data.pointer.top;
+            var abs_mouse_left = data.pointer.left;
+            var abs_mouse_top = min_window_y + data.pointer.top;
 
-        var max_player_y = (this.doc_height - this.window_height +
-            this.player_height);
+            var max_player_y = (this.doc_height - this.window_height +
+                this.player_height);
 
-        if (abs_mouse_top >= mouse_down_zone) {
-            nextScrollTop = scrollTop + 30;
-            if (nextScrollTop < max_player_y) {
-                $window.scrollTop(nextScrollTop);
-                this.scrollOffset = this.scrollOffset + 30;
+            if (abs_mouse_top >= mouse_down_zone) {
+                nextScrollTop = scrollTop + 30;
+                if (nextScrollTop < max_player_y) {
+                    $window.scrollTop(nextScrollTop);
+                    this.scrollOffset = this.scrollOffset + 30;
+                    this.manage_scroll(data);
+                }
             }
-        }
 
-        if (abs_mouse_top <= mouse_up_zone) {
-            nextScrollTop = scrollTop - 30;
-            if (nextScrollTop > 0) {
-                $window.scrollTop(nextScrollTop);
-                this.scrollOffset = this.scrollOffset - 30;
+            if (abs_mouse_top <= mouse_up_zone) {
+                nextScrollTop = scrollTop - 30;
+                if (nextScrollTop > 0) {
+                    $window.scrollTop(nextScrollTop);
+                    this.scrollOffset = this.scrollOffset - 30;
+                    this.manage_scroll(data);
+                }
             }
+        }, 10);
+
+        // Return a wrapper fn that calls the debounced version
+        return function(data) {
+            _manage_scroll.call(this, data);
+            return this;
         }
-    };
+    }());
 
 
     fn.calculate_positions = function(e) {
@@ -321,6 +337,7 @@
         return false;
     };
 
+
     fn.on_select_start = function(e) {
         if (this.disabled) { return; }
 
@@ -331,13 +348,28 @@
         return false;
     };
 
+
     fn.enable = function() {
+        if(!this.disabled) return;
+
         this.disabled = false;
+
+        if (this.options.enable) {
+            this.options.enable.call(this);
+        }
     };
 
+
     fn.disable = function() {
+        if(this.disabled) return;
+
         this.disabled = true;
+
+        if (this.options.disable) {
+            this.options.disable.call(this);
+        }
     };
+
 
     fn.destroy = function() {
         this.disable();
@@ -349,6 +381,7 @@
         $.removeData(this.$container, 'drag');
     };
 
+
     fn.ignore_drag = function(event) {
         if (this.options.handle) {
             return !$(event.target).is(this.options.handle);
@@ -356,6 +389,7 @@
 
         return $(event.target).is(this.options.ignore_dragging.join(', '));
     };
+
 
     //jQuery adapter
     $.fn.drag = function ( options ) {
