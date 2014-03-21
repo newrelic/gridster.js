@@ -1,6 +1,56 @@
-/*! gridster.js - v0.2.1 - 2014-03-17
+/*! gridster.js - v0.2.1 - 2014-03-21
 * https://github.com/newrelic/gridster.js
 * Copyright (c) 2014 ducksboard; Licensed MIT, New Relic */
+
+;(function(window, undefined) {
+
+
+    window.delay = function(func, wait) {
+        var args = Array.prototype.slice.call(arguments, 2);
+        return setTimeout(function(){ return func.apply(null, args); }, wait);
+    };
+
+
+    /* Debounce and throttle functions taken from underscore.js */
+    window.debounce = function(func, wait, immediate) {
+        var timeout;
+        return function() {
+          var context = this, args = arguments;
+          var later = function() {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+          };
+          if (immediate && !timeout) func.apply(context, args);
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+    };
+
+
+    window.throttle = function(func, wait) {
+        var context, args, timeout, throttling, more, result;
+        var whenDone = debounce(
+            function(){ more = throttling = false; }, wait);
+        return function() {
+          context = this; args = arguments;
+          var later = function() {
+            timeout = null;
+            if (more) func.apply(context, args);
+            whenDone();
+          };
+          if (!timeout) timeout = setTimeout(later, wait);
+          if (throttling) {
+            more = true;
+          } else {
+            result = func.apply(context, args);
+          }
+          whenDone();
+          throttling = true;
+          return result;
+        };
+    };
+
+})(window);
 
 ;(function($, window, document, undefined){
     /**
@@ -331,56 +381,6 @@
 
 }(jQuery, window, document));
 
-;(function(window, undefined) {
-
-
-    window.delay = function(func, wait) {
-        var args = Array.prototype.slice.call(arguments, 2);
-        return setTimeout(function(){ return func.apply(null, args); }, wait);
-    };
-
-
-    /* Debounce and throttle functions taken from underscore.js */
-    window.debounce = function(func, wait, immediate) {
-        var timeout;
-        return function() {
-          var context = this, args = arguments;
-          var later = function() {
-            timeout = null;
-            if (!immediate) func.apply(context, args);
-          };
-          if (immediate && !timeout) func.apply(context, args);
-          clearTimeout(timeout);
-          timeout = setTimeout(later, wait);
-        };
-    };
-
-
-    window.throttle = function(func, wait) {
-        var context, args, timeout, throttling, more, result;
-        var whenDone = debounce(
-            function(){ more = throttling = false; }, wait);
-        return function() {
-          context = this; args = arguments;
-          var later = function() {
-            timeout = null;
-            if (more) func.apply(context, args);
-            whenDone();
-          };
-          if (!timeout) timeout = setTimeout(later, wait);
-          if (throttling) {
-            more = true;
-          } else {
-            result = func.apply(context, args);
-          }
-          whenDone();
-          throttling = true;
-          return result;
-        };
-    };
-
-})(window);
-
 ;(function($, window, document, undefined) {
 
     var defaults = {
@@ -389,6 +389,7 @@
         limit: true,
         offset_left: 0,
         autoscroll: true,
+        scroll_speed: 10,
         ignore_dragging: ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'],
         handle: null,
         container_width: 0,  // 0 == auto
@@ -396,7 +397,9 @@
         helper: false  // or 'clone'
         // drag: function(e) {},
         // start : function(e, ui) {},
-        // stop : function(e) {}
+        // stop : function(e) {},
+        // enable : function(e) {},
+        // disable : function(e) {}
     };
 
     var $window = $(window);
@@ -445,6 +448,7 @@
 
     var fn = Draggable.prototype;
 
+
     fn.init = function() {
         this.calculate_positions();
         this.$container.css('position', 'relative');
@@ -454,6 +458,7 @@
         $(window).on('resize.gridster-draggable',
             throttle($.proxy(this.calculate_positions, this), 200));
     };
+
 
     fn.events = function() {
         this.$container.on('selectstart.gridster-draggable',
@@ -471,6 +476,7 @@
             }
         }, this));
     };
+
 
     fn.get_actual_pos = function($el) {
         var pos = $el.position();
@@ -534,38 +540,48 @@
     };
 
 
-    fn.manage_scroll = function(data) {
-        /* scroll document */
-        var nextScrollTop;
-        var scrollTop = $window.scrollTop();
-        var min_window_y = scrollTop;
-        var max_window_y = min_window_y + this.window_height;
+    fn.manage_scroll = (function () {
+        var _manage_scroll = throttle(function(data) {
+            /* scroll document */
+            var nextScrollTop;
+            var scrollTop = $window.scrollTop();
+            var min_window_y = scrollTop;
+            var max_window_y = min_window_y + this.window_height;
 
-        var mouse_down_zone = max_window_y - 50;
-        var mouse_up_zone = min_window_y + 50;
+            var mouse_down_zone = max_window_y - 50;
+            var mouse_up_zone = min_window_y + 50;
 
-        var abs_mouse_left = data.pointer.left;
-        var abs_mouse_top = min_window_y + data.pointer.top;
+            var abs_mouse_left = data.pointer.left;
+            var abs_mouse_top = min_window_y + data.pointer.top;
 
-        var max_player_y = (this.doc_height - this.window_height +
-            this.player_height);
+            var max_player_y = (this.doc_height - this.window_height +
+                this.player_height);
 
-        if (abs_mouse_top >= mouse_down_zone) {
-            nextScrollTop = scrollTop + 30;
-            if (nextScrollTop < max_player_y) {
-                $window.scrollTop(nextScrollTop);
-                this.scrollOffset = this.scrollOffset + 30;
+            if (abs_mouse_top >= mouse_down_zone) {
+                nextScrollTop = scrollTop + 30;
+                if (nextScrollTop < max_player_y) {
+                    $window.scrollTop(nextScrollTop);
+                    this.scrollOffset = this.scrollOffset + 30;
+                    this.manage_scroll(data);
+                }
             }
-        }
 
-        if (abs_mouse_top <= mouse_up_zone) {
-            nextScrollTop = scrollTop - 30;
-            if (nextScrollTop > 0) {
-                $window.scrollTop(nextScrollTop);
-                this.scrollOffset = this.scrollOffset - 30;
+            if (abs_mouse_top <= mouse_up_zone) {
+                nextScrollTop = scrollTop - 30;
+                if (nextScrollTop > 0) {
+                    $window.scrollTop(nextScrollTop);
+                    this.scrollOffset = this.scrollOffset - 30;
+                    this.manage_scroll(data);
+                }
             }
+        }, 10);
+
+        // Return a wrapper fn that calls the debounced version
+        return function(data) {
+            _manage_scroll.call(this, data);
+            return this;
         }
-    };
+    }());
 
 
     fn.calculate_positions = function(e) {
@@ -696,6 +712,7 @@
         return false;
     };
 
+
     fn.on_select_start = function(e) {
         if (this.disabled) { return; }
 
@@ -706,13 +723,28 @@
         return false;
     };
 
+
     fn.enable = function() {
+        if(!this.disabled) return;
+
         this.disabled = false;
+
+        if (this.options.enable) {
+            this.options.enable.call(this);
+        }
     };
 
+
     fn.disable = function() {
+        if(this.disabled) return;
+
         this.disabled = true;
+
+        if (this.options.disable) {
+            this.options.disable.call(this);
+        }
     };
+
 
     fn.destroy = function() {
         this.disable();
@@ -724,6 +756,7 @@
         $.removeData(this.$container, 'drag');
     };
 
+
     fn.ignore_drag = function(event) {
         if (this.options.handle) {
             return !$(event.target).is(this.options.handle);
@@ -731,6 +764,7 @@
 
         return $(event.target).is(this.options.ignore_dragging.join(', '));
     };
+
 
     //jQuery adapter
     $.fn.drag = function ( options ) {
@@ -765,6 +799,7 @@
         },
         collision: {},
         draggable: {
+            enabled: true,
             items: '.gs-w',
             distance: 4
         },
@@ -776,7 +811,7 @@
             max_size: [Infinity, Infinity]
         },
         grid: {},
-        throttle: 200
+        throttle: 50
     };
 
     /**
@@ -824,25 +859,25 @@
     *    @param {Object} [options.draggable] An Object with all options for
     *     Draggable class you want to overwrite. See Draggable docs for more
     *     info.
-    *       @param {Object} [options.resizable] An Object with resizable config
-    *        options.
-    *       @param {Boolean} [options.resizable.enabled] Set to true to enable
-    *        resizing.
-    *       @param {Array} [options.resizable.axes] Axes in which widgets can be
-    *        resized. Possible values: ['x', 'y', 'both'].
-    *       @param {String} [options.resizable.handle_append_to] Set a valid CSS
-    *        selector to append resizable handles to.
-    *       @param {String} [options.resizable.handle_class] CSS class name used
-    *        by resize handles.
-    *       @param {Array} [options.resizable.max_size] Limit widget dimensions
-    *        when resizing. Array values should be integers:
-    *        `[max_cols_occupied, max_rows_occupied]`
-    *       @param {Function} [options.resizable.start] Function executed
-    *        when resizing starts.
-    *       @param {Function} [otions.resizable.resize] Function executed
-    *        during the resizing.
-    *       @param {Function} [options.resizable.stop] Function executed
-    *        when resizing stops.
+    *    @param {Object} [options.resizable] An Object with resizable config
+    *     options.
+    *    @param {Boolean} [options.resizable.enabled] Set to true to enable
+    *     resizing.
+    *    @param {Array} [options.resizable.axes] Axes in which widgets can be
+    *     resized. Possible values: ['x', 'y', 'both'].
+    *    @param {String} [options.resizable.handle_append_to] Set a valid CSS
+    *     selector to append resizable handles to.
+    *    @param {String} [options.resizable.handle_class] CSS class name used
+    *     by resize handles.
+    *    @param {Array} [options.resizable.max_size] Limit widget dimensions
+    *     when resizing. Array values should be integers:
+    *     `[max_cols_occupied, max_rows_occupied]`
+    *    @param {Function} [options.resizable.start] Function executed
+    *     when resizing starts.
+    *    @param {Function} [otions.resizable.resize] Function executed
+    *     during the resizing.
+    *    @param {Function} [options.resizable.stop] Function executed
+    *     when resizing stops.
     *
     * @constructor
     */
@@ -865,23 +900,39 @@
     var fn = Gridster.prototype;
 
     fn.init = function() {
-        this.options.resizable.enabled && this.setup_resize();
+        this.setup_resize();
         this.recalculate_widget_dimensions();
         this.generate_grid_and_stylesheet();
         this.get_widgets_from_DOM();
         this.set_dom_grid_height();
         this.$wrapper.addClass('ready');
-        this.draggable();
-        this.options.resizable.enabled && this.resizable();
+        this.enable();
 
-        var delay = this.options.throttle;
         $(window).on('resize.gridster', throttle(
-            $.proxy(this.recalculate_faux_grid, this), delay));
+            $.proxy(this.recalculate_faux_grid, this), this.options.throttle));
     };
 
 
     /**
-    * Disables dragging.
+    * Enables dragging/resizing.
+    *
+    * @method enable
+    * @return {Class} Returns the instance of the Gridster Class.
+    */
+    fn.enable = function() {
+        if(this.options.draggable.enabled) {
+            this.drag_api ? this.drag_api.enable() : this.draggable();
+        }
+
+        if(this.options.resizable.enabled) {
+            this.resize_api ? this.resize_api.enable() : this.resizable();
+        }
+        return this;
+    };
+
+
+    /**
+    * Disables dragging/resizing.
     *
     * @method disable
     * @return {Class} Returns the instance of the Gridster Class.
@@ -889,48 +940,7 @@
     fn.disable = function() {
         this.$wrapper.find('.player-revert').removeClass('player-revert');
         this.drag_api.disable();
-        return this;
-    };
-
-
-    /**
-    * Enables dragging.
-    *
-    * @method enable
-    * @return {Class} Returns the instance of the Gridster Class.
-    */
-    fn.enable = function() {
-        this.drag_api.enable();
-        return this;
-    };
-
-
-
-    /**
-    * Disables drag-and-drop widget resizing.
-    *
-    * @method disable
-    * @return {Class} Returns instance of gridster Class.
-    */
-    fn.disable_resize = function() {
-        this.$el.addClass('gs-resize-disabled');
         this.resize_api.disable();
-        return this;
-    };
-
-
-    /**
-    * Enables drag-and-drop widget resizing.
-    *
-    * @method enable
-    * @return {Class} Returns instance of gridster Class.
-    */
-    fn.enable_resize = function() {
-        //
-        // TODO: (IW) Can we just reuse the drag_api here?
-        // 
-        this.$el.removeClass('gs-resize-disabled');
-        this.resize_api.enable();
         return this;
     };
 
@@ -1561,7 +1571,7 @@
         var draggable_options = $.extend(true, {}, this.options.draggable, {
             offset_left: this.options.widget_margins[0],
             ignore_dragging: ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON',
-                '.' + this.options.resizable.handle_class],
+                '.' + this.resize_handle_class],
             start: function(event, ui) {
                 self.$widgets.filter('.player-revert')
                     .removeClass('player-revert');
@@ -1596,8 +1606,10 @@
     * @return {Class} Returns instance of gridster Class.
     */
     fn.resizable = function() {
+        var self = this;
+
         this.resize_api = this.$el.drag({
-            items: '.' + this.options.resizable.handle_class,
+            items: '.' + this.resize_handle_class,
             offset_left: this.options.widget_margins[0],
             move_element: false,
             start: $.proxy(this.on_start_resize, this),
@@ -1606,7 +1618,9 @@
                     this.on_stop_resize(event, ui);
                 }, this), 120);
             }, this),
-            drag: throttle($.proxy(this.on_resize, this), 60)
+            drag: throttle($.proxy(this.on_resize, this), 60),
+            enable: function() { self.$el.removeClass('gs-resize-disabled'); },
+            disable: function() { self.$el.addClass('gs-resize-disabled'); }
         });
 
         return this;
@@ -1620,6 +1634,8 @@
     * @return {Class} Returns instance of gridster Class.
     */
     fn.setup_resize = function() {
+        // if(!this.options.resizable.enabled) return this;
+
         this.resize_handle_class = this.options.resizable.handle_class;
         var axes = this.options.resizable.axes;
         var handle_tpl = '<span class="' + this.resize_handle_class + ' ' +
@@ -1628,6 +1644,7 @@
         this.resize_handle_tpl = $.map(axes, function(type) {
             return handle_tpl.replace('{type}', type);
         }).join('');
+
         return this;
     };
 
@@ -1833,7 +1850,7 @@
 
         this.$resized_widget.addClass('resizing');
 
-    if (this.options.resizable.start) {
+        if (this.options.resizable.start) {
             this.options.resizable.start.call(this, event, ui, this.$resized_widget);
         }
     };
@@ -3374,7 +3391,6 @@
         var _set_dom_grid_height = debounce(function() {
             var r = this.get_highest_occupied_cell().row;
             this.$el.css('height', r * this.min_widget_height);
-            return this;
         }, 50);
 
         // Return a wrapper fn that calls the debounced version
@@ -3743,29 +3759,25 @@
     };
 
     /**
-     * Destroy this gridster by removing any sign of its presence, making it easy to avoid memory leaks
+     * Destroy this gridster by removing any sign of its presence, making it
+     * easy to avoid memory leaks
      *
      * @method destroy
      * @return {undefined}
      */
     fn.destroy = function() {
-        // remove bound callback on window resize
+        // remove window resize listener
         $(window).off('.gridster');
 
-        if (this.drag_api) {
-            this.disable();
-            this.drag_api.destroy();
-        }
-        if (this.resize_api) {
-            this.disable_resize();
-            this.resize_api.destroy();
-        }
+        this.disable();
+        if(this.drag_api) this.drag_api.destroy();
+        if(this.resize_api) this.resize_api.destroy();
 
         this.remove_style_tags();
 
         // lastly, remove gridster element
-        // this will additionally cause any data associated to this element to be removed, including this
-        // very gridster instance
+        // this will additionally cause any data associated to this element to
+        // be removed, including this very gridster instance
         this.$el.remove();
 
         return this;
