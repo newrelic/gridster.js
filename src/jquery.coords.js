@@ -6,7 +6,15 @@
  * Licensed under the MIT licenses.
  */
 
-;(function($, window, document, undefined){
+;(function(root, factory) {
+
+    if (typeof define === 'function' && define.amd) {
+        define('gridster-coords', ['jquery'], factory);
+    } else {
+       root.GridsterCoords = factory(root.$ || root.jQuery);
+    }
+
+}(this, function($) {
     /**
     * Creates objects with coordinates (x1, y1, x2, y2, cx, cy, width, height)
     * to simulate DOM elements on the screen.
@@ -59,6 +67,9 @@
 
         var d = this.data;
 
+        typeof d.left === 'undefined' && (d.left = d.x1);
+        typeof d.top === 'undefined' && (d.top = d.y1);
+
         this.coords.x1 = d.left;
         this.coords.y1 = d.top;
         this.coords.x2 = d.left + d.width;
@@ -93,6 +104,10 @@
         return this.coords;
     };
 
+    fn.destroy = function() {
+        this.el.removeData('coords');
+        delete this.el;
+    };
 
     //jQuery adapter
     $.fn.coords = function() {
@@ -105,4 +120,6 @@
         return ins;
     };
 
-}(jQuery, window, document));
+    return Coords;
+
+}));

@@ -6,10 +6,20 @@
  * Licensed under the MIT licenses.
  */
 
-;(function($, window, document, undefined){
+;(function(root, factory) {
+
+    if (typeof define === 'function' && define.amd) {
+        define('gridster-collision', ['jquery', 'gridster-coords'], factory);
+    } else {
+        root.GridsterCollision = factory(root.$ || root.jQuery,
+            root.GridsterCoords);
+    }
+
+}(this, function($, Coords) {
 
     var defaults = {
-        colliders_context: document.body
+        colliders_context: document.body,
+        overlapping_region: 'C'
         // ,on_overlap: function(collider_data){},
         // on_overlap_start : function(collider_data){},
         // on_overlap_stop : function(collider_data){}
@@ -27,6 +37,9 @@
     *  of HTMLElements or an Array of Coords instances.
     * @param {Object} [options] An Object with all options you want to
     *        overwrite:
+    *   @param {String} [options.overlapping_region] Determines when collision
+    *    is valid, depending on the overlapped area. Values can be: 'N', 'S',
+    *    'W', 'E', 'C' or 'all'. Default is 'C'.
     *   @param {Function} [options.on_overlap_start] Executes a function the first
     *    time each `collider ` is overlapped.
     *   @param {Function} [options.on_overlap_stop] Executes a function when a
@@ -41,16 +54,12 @@
         this.$element = el;
         this.last_colliders = [];
         this.last_colliders_coords = [];
-        if (typeof colliders === 'string' || colliders instanceof jQuery) {
-            this.$colliders = $(colliders,
-                 this.options.colliders_context).not(this.$element);
-        }else{
-            this.colliders = $(colliders);
-        }
+        this.set_colliders(colliders);
 
         this.init();
     }
 
+    Collision.defaults = defaults;
 
     var fn = Collision.prototype;
 
@@ -131,6 +140,7 @@
 
     fn.find_collisions = function(player_data_coords){
         var self = this;
+        var overlapping_region = this.options.overlapping_region;
         var colliders_coords = [];
         var colliders_data = [];
         var $colliders = (this.colliders || this.$colliders);
@@ -154,7 +164,8 @@
               player_coords, collider_coords);
 
             //todo: make this an option
-            if (region === 'C'){
+            if (region === overlapping_region || overlapping_region === 'all') {
+
                 var area_coords = self.calculate_overlapped_area_coords(
                     player_coords, collider_coords);
                 var area = self.calculate_overlapped_area(area_coords);
@@ -211,10 +222,21 @@
     };
 
 
+    fn.set_colliders = function(colliders) {
+        if (typeof colliders === 'string' || colliders instanceof $) {
+            this.$colliders = $(colliders,
+                 this.options.colliders_context).not(this.$element);
+        }else{
+            this.colliders = $(colliders);
+        }
+    };
+
+
     //jQuery adapter
     $.fn.collision = function(collider, options) {
           return new Collision( this, collider, options );
     };
 
+    return Collision;
 
-}(jQuery, window, document));
+}));
